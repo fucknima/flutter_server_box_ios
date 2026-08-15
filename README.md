@@ -74,6 +74,16 @@ If I forgot to add your name to the contributors list, please add a comment in t
 2. Clone this repo, run `flutter run` to start the app.
 3. Run `dart run fl_build -p PLATFORM` to build the app.
 
+### Native iOS SwiftUI port
+
+The first native iOS implementation is in `native-ios/`. It is an independent
+SwiftUI app and currently ports the ServerBoxMonitor `/status` workflow:
+endpoint management, persistent configuration, status cards, refresh, and
+error handling. SSH, terminal, SFTP, Docker, and systemd remain in the Flutter
+app until their native transport and security requirements are implemented.
+
+Open `native-ios/ServerBox.xcodeproj` on macOS with Xcode 16 or later.
+
 ### Translation
 
 - [Guide](https://blog.lpkt.cn/posts/faq/) can be found in my blog.

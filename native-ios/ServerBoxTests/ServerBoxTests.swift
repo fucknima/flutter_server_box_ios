@@ -1,0 +1,66 @@
+import Foundation
+import Testing
+@testable import ServerBox
+
+struct ServerBoxTests {
+    @Test
+    func monitorStatusPayloadDecodesAndCalculatesFractions() throws {
+        let data = Data(
+            """
+            {
+              "code": 0,
+              "msg": "ok",
+              "data": {
+                "name": "home",
+                "cpu": "31.7%",
+                "mem": "1.3g / 1.9g",
+                "disk": "7.1g / 30.0g",
+                "net": "712.3k / 1.2m"
+              }
+            }
+            """.utf8
+        )
+
+        let envelope = try JSONDecoder().decode(MonitorStatusEnvelope.self, from: data)
+
+        #expect(envelope.code == 0)
+        #expect(envelope.data?.name == "home")
+        #expect(abs((envelope.data?.cpuFraction ?? 0) - 0.317) < 0.001)
+        #expect(abs((envelope.data?.memoryFraction ?? 0) - (1.3 / 1.9)) < 0.001)
+    }
+
+    @Test
+    func rootEndpointIsNormalizedToStatus() throws {
+        let url = try MonitorEndpoint.normalizedURL(from: "https://example.com")
+        #expect(url.absoluteString == "https://example.com/status")
+    }
+
+    @Test
+    func invalidEndpointIsRejected() {
+        #expect(throws: MonitorEndpointError.self) {
+            try MonitorEndpoint.normalizedURL(from: "example.com")
+        }
+        #expect(throws: MonitorEndpointError.self) {
+            try MonitorEndpoint.normalizedURL(from: "ftp://example.com")
+        }
+    }
+
+    @Test
+    func serverStoreRoundTripsCodableData() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ServerBoxTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directory.appendingPathComponent("servers.json")
+        let store = ServerStore(fileURL: fileURL)
+        let statusURL = try #require(URL(string: "https://example.com/status"))
+        let server = MonitorServer(
+            name: "Test",
+            statusURL: statusURL
+        )
+
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try await store.save([server])
+        let loaded = try await store.load()
+
+        #expect(loaded == [server])
+    }
+}

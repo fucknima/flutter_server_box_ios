@@ -1,0 +1,86 @@
+name: Native iOS
+
+on:
+  push:
+    paths:
+      - "native-ios/**"
+      - ".github/workflows/native-ios.yml"
+      - "README.md"
+  pull_request:
+    paths:
+      - "native-ios/**"
+      - ".github/workflows/native-ios.yml"
+      - "README.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: SwiftUI tests
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
+
+      - name: Show toolchain
+        run: xcodebuild -version
+
+      - name: Test on iOS Simulator
+        run: >-
+          xcodebuild
+          -project native-ios/ServerBox.xcodeproj
+          -scheme ServerBox
+          -destination 'platform=iOS Simulator,name=iPhone 16,OS=latest'
+          -derivedDataPath "$RUNNER_TEMP/ServerBoxDerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          test
+
+  build:
+    name: Unsigned iOS build
+    needs: test
+    runs-on: macos-14
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Select Xcode
+        uses: maxim-lobanov/setup-xcode@v1
+        with:
+          xcode-version: "16.2"
+
+      - name: Build for iPhoneOS
+        run: >-
+          xcodebuild
+          -project native-ios/ServerBox.xcodeproj
+          -scheme ServerBox
+          -sdk iphoneos
+          -configuration Release
+          -derivedDataPath "$RUNNER_TEMP/ServerBoxDeviceDerivedData"
+          CODE_SIGNING_ALLOWED=NO
+          CODE_SIGNING_REQUIRED=NO
+          build
+
+      - name: Package unsigned app
+        run: |
+          app="$RUNNER_TEMP/ServerBoxDeviceDerivedData/Build/Products/Release-iphoneos/ServerBox.app"
+          ditto -c -k --sequesterRsrc --keepParent "$app" "$RUNNER_TEMP/ServerBox-unsigned.app.zip"
+          mkdir -p "$RUNNER_TEMP/Payload"
+          cp -R "$app" "$RUNNER_TEMP/Payload/ServerBox.app"
+          (cd "$RUNNER_TEMP" && zip -qry ServerBox-unsigned.ipa Payload)
+
+      - name: Upload unsigned app
+        uses: actions/upload-artifact@v4
+        with:
+          name: ServerBox-unsigned-app
+          path: |
+            ${{ runner.temp }}/ServerBox-unsigned.app.zip
+            ${{ runner.temp }}/ServerBox-unsigned.ipa
+          if-no-files-found: error

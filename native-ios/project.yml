@@ -1,0 +1,40 @@
+name: ServerBox
+options:
+  deploymentTarget:
+    iOS: "16.0"
+  createIntermediateGroups: true
+settings:
+  base:
+    SWIFT_VERSION: "5.9"
+targets:
+  ServerBox:
+    type: application
+    platform: iOS
+    sources:
+      - path: ServerBox
+        excludes:
+          - Resources
+    resources:
+      - path: ServerBox/Resources
+        excludes:
+          - Info.plist
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native
+        INFOPLIST_FILE: ServerBox/Resources/Info.plist
+        TARGETED_DEVICE_FAMILY: "1,2"
+        CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+  ServerBoxTests:
+    type: bundle.unit-test
+    platform: iOS
+    sources:
+      - path: ServerBoxTests
+    dependencies:
+      - target: ServerBox
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native.tests
+        GENERATE_INFOPLIST_FILE: YES
+        TEST_HOST: "$(BUILT_PRODUCTS_DIR)/ServerBox.app/ServerBox"
+        BUNDLE_LOADER: "$(TEST_HOST)"
