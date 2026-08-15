@@ -6,6 +6,7 @@ options:
 settings:
   base:
     SWIFT_VERSION: "5.9"
+    EXCLUDED_ARCHS[sdk=iphonesimulator*]: x86_64
 packages:
   Citadel:
     url: https://github.com/orlandos-nl/Citadel.git
