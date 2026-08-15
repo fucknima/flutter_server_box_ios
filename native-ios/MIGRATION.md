@@ -29,14 +29,15 @@ key identifiers.
 
 | Flutter area | Main source | Native status |
 | --- | --- | --- |
-| Server list and status cards | `lib/view/page/server/tab` | Monitor HTTP flow exists; SSH flow in progress |
-| Server editor and deduplication | `lib/view/page/server/edit` | Native model and editor migration in progress |
-| SSH authentication | `lib/core/utils/server.dart`, `ssh_auth.dart` | Citadel transport being integrated |
-| Jump hosts and proxy command | `lib/core/utils/jump_chain.dart`, `proxy_command_socket.dart` | Planned in SSH transport boundary |
-| Remote status script and parsers | `lib/data/model/app/scripts`, `server_status_update_req.dart` | Protocol port in progress |
-| SSH terminal and tmux | `lib/view/page/ssh`, `lib/data/ssh` | Planned after transport boundary |
-| SFTP and local files | `lib/view/page/storage` | Planned after SFTP transport |
-| Docker, process, systemd, PVE | `lib/view/page/container`, `process.dart`, `systemd.dart`, `pve.dart` | Planned feature modules |
+| Server list and status cards | `lib/view/page/server/tab` | Monitor HTTP and SSH status flows exist for the current base metrics |
+| Server editor and deduplication | `lib/view/page/server/edit` | Native model and editor flow exist; advanced fields remain |
+| Connection statistics | `lib/view/page/server/connection_stats.dart`, `lib/data/store/connection_stats.dart` | Native JSON history, summaries, cleanup, and SwiftUI screen exist |
+| SSH authentication | `lib/core/utils/server.dart`, `ssh_auth.dart` | Citadel transport integrated for password and private-key flows |
+| Jump hosts and proxy command | `lib/core/utils/jump_chain.dart`, `proxy_command_socket.dart` | Jump-chain transport integrated; proxy execution remains |
+| Remote status script and parsers | `lib/data/model/app/scripts`, `server_status_update_req.dart` | Framed SSH status protocol ported for base metrics |
+| SSH terminal and tmux | `lib/view/page/ssh`, `lib/data/ssh` | PTY terminal exists; tmux/session management remains |
+| SFTP and local files | `lib/view/page/storage` | Remote SFTP browser and preview exist; local files/missions remain |
+| Docker, process, systemd, PVE | `lib/view/page/container`, `process.dart`, `systemd.dart`, `pve.dart` | Process, systemd, and Docker/Podman tools exist; PVE remains |
 | Snippets and agent | `lib/view/page/snippet`, `agent` | Planned feature modules |
 | Backup and settings | `lib/view/page/backup`, `setting` | Planned native repositories and settings |
 | Widget and Watch | `ios/StatusWidget`, `ios/WatchApp` | Existing Flutter extensions retained until native data sharing is complete |

@@ -10,6 +10,7 @@ struct RootView: View {
     @State private var sftpServer: ServerConfiguration?
     @State private var processesServer: ServerConfiguration?
     @State private var toolsServer: ServerConfiguration?
+    @State private var showingConnectionStats = false
 
     var body: some View {
         rootView
@@ -73,6 +74,9 @@ struct RootView: View {
                         )
                     }
                 )
+            }
+            .sheet(isPresented: $showingConnectionStats) {
+                ConnectionStatsView()
             }
             .confirmationDialog(
                 "Delete this server?",
@@ -203,6 +207,14 @@ struct RootView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                showingConnectionStats = true
+            } label: {
+                Image(systemName: "chart.bar.xaxis")
+            }
+            .accessibilityLabel("Connection statistics")
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 editorRoute = .add

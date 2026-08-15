@@ -144,4 +144,56 @@ struct ServerBoxTests {
         #expect(containers.first?.isRunning == true)
         #expect(containers.last?.isRunning == false)
     }
+
+    @Test
+    func connectionResultClassificationMatchesTransportFailures() {
+        #expect(ConnectionResult.classify(message: "Connection timed out") == .timeout)
+        #expect(ConnectionResult.classify(message: "Authentication failed") == .authFailed)
+        #expect(ConnectionResult.classify(message: "Connection refused") == .networkError)
+        #expect(ConnectionResult.classify(message: "Unexpected failure") == .unknownError)
+    }
+
+    @Test
+    func connectionStatsStorePersistsAndSummarizesRecords() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ConnectionStatsTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directory.appendingPathComponent("connection-stats.json")
+        let store = ConnectionStatsStore(fileURL: fileURL)
+        let serverID = UUID()
+        let now = Date()
+
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        try await store.record(
+            ConnectionStat(
+                serverID: serverID,
+                serverName: "Test server",
+                timestamp: now.addingTimeInterval(-2),
+                result: .success,
+                durationMilliseconds: 125
+            )
+        )
+        try await store.record(
+            ConnectionStat(
+                serverID: serverID,
+                serverName: "Test server",
+                timestamp: now,
+                result: .authFailed,
+                errorMessage: "Authentication failed",
+                durationMilliseconds: 80
+            )
+        )
+
+        let summaries = try await store.allServerStats()
+        let summary = try #require(summaries.first)
+        #expect(summary.totalAttempts == 2)
+        #expect(summary.successCount == 1)
+        #expect(summary.failureCount == 1)
+        #expect(summary.successRate == 0.5)
+        #expect(summary.recentConnections.first?.result == .authFailed)
+
+        let reloadedStore = ConnectionStatsStore(fileURL: fileURL)
+        let reloaded = try await reloadedStore.allServerStats()
+        #expect(reloaded == summaries)
+    }
 }

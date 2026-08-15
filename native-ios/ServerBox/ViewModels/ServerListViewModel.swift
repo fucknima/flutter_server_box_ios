@@ -21,6 +21,7 @@ final class ServerListViewModel: ObservableObject {
     private let api: any MonitorAPIProtocol
     private let credentialStore: SSHCredentialStore
     private let sshStatusService: SSHStatusService
+    private let connectionStatsStore: ConnectionStatsStore
     private var didLoad = false
     private var refreshGeneration = 0
 
@@ -28,12 +29,14 @@ final class ServerListViewModel: ObservableObject {
         store: ServerStore = .live,
         api: any MonitorAPIProtocol = MonitorAPI(),
         credentialStore: SSHCredentialStore = SSHCredentialStore(),
-        sshStatusService: SSHStatusService = .live
+        sshStatusService: SSHStatusService = .live,
+        connectionStatsStore: ConnectionStatsStore = .live
     ) {
         self.store = store
         self.api = api
         self.credentialStore = credentialStore
         self.sshStatusService = sshStatusService
+        self.connectionStatsStore = connectionStatsStore
     }
 
     func start() async {
@@ -182,6 +185,7 @@ final class ServerListViewModel: ObservableObject {
         Task {
             await SSHConnectionService.live.disconnect(serverID: server.id)
             try? credentialStore.remove(for: server.id)
+            try? await connectionStatsStore.clear(serverID: server.id)
         }
         persist()
     }
@@ -190,6 +194,7 @@ final class ServerListViewModel: ObservableObject {
         _ server: ServerConfiguration,
         allowUnverifiedHostKey: Bool = false
     ) async {
+        let startedAt = Date()
         connectionStates[server.id] = .connecting
 
         do {
@@ -221,11 +226,23 @@ final class ServerListViewModel: ObservableObject {
                 jumpChain: jumpChain,
                 allowUnverifiedHostKey: allowUnverifiedHostKey
             )
+            await recordConnection(
+                for: server,
+                startedAt: startedAt,
+                result: .success
+            )
             connectionStates[server.id] = .connected
         } catch is CancellationError {
             connectionStates[server.id] = .disconnected
         } catch {
-            connectionStates[server.id] = .failed(error.localizedDescription)
+            let message = error.localizedDescription
+            await recordConnection(
+                for: server,
+                startedAt: startedAt,
+                result: ConnectionResult.classify(message: message),
+                errorMessage: message
+            )
+            connectionStates[server.id] = .failed(message)
         }
     }
 
@@ -320,6 +337,27 @@ final class ServerListViewModel: ObservableObject {
         case .privateKey(let privateKey, let passphrase):
             return .privateKey(privateKey, passphrase: passphrase)
         }
+    }
+
+    private func recordConnection(
+        for server: ServerConfiguration,
+        startedAt: Date,
+        result: ConnectionResult,
+        errorMessage: String = ""
+    ) async {
+        let durationMilliseconds = max(
+            0,
+            Int(Date().timeIntervalSince(startedAt) * 1_000)
+        )
+        let stat = ConnectionStat(
+            serverID: server.id,
+            serverName: server.name,
+            timestamp: startedAt,
+            result: result,
+            errorMessage: errorMessage,
+            durationMilliseconds: durationMilliseconds
+        )
+        try? await connectionStatsStore.record(stat)
     }
 
     private func persist() {
