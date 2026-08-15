@@ -251,6 +251,20 @@ final class ServerListViewModel: ObservableObject {
         try await SSHConnectionService.live.openTerminal(serverID: server.id)
     }
 
+    func listDirectory(
+        for server: ServerConfiguration,
+        path: String
+    ) async throws -> [RemoteFile] {
+        try await SSHConnectionService.live.listDirectory(serverID: server.id, path: path)
+    }
+
+    func readFile(
+        for server: ServerConfiguration,
+        path: String
+    ) async throws -> String {
+        try await SSHConnectionService.live.readRemoteFile(serverID: server.id, path: path)
+    }
+
     private func makeSSHCredential(_ credential: ServerCredentialInput) -> SSHCredential {
         switch credential {
         case .password(let password):

@@ -7,6 +7,7 @@ struct RootView: View {
     @State private var serverToDelete: ServerConfiguration?
     @State private var serverToTrust: ServerConfiguration?
     @State private var terminalServer: ServerConfiguration?
+    @State private var sftpServer: ServerConfiguration?
 
     var body: some View {
         rootView
@@ -22,6 +23,16 @@ struct RootView: View {
                 TerminalView {
                     try await viewModel.openTerminal(for: server)
                 }
+            }
+            .sheet(item: $sftpServer) { server in
+                SFTPView(
+                    listDirectory: { path in
+                        try await viewModel.listDirectory(for: server, path: path)
+                    },
+                    readFile: { path in
+                        try await viewModel.readFile(for: server, path: path)
+                    }
+                )
             }
             .confirmationDialog(
                 "Delete this server?",
@@ -129,6 +140,9 @@ struct RootView: View {
                     },
                     onOpenTerminal: {
                         terminalServer = server
+                    },
+                    onOpenSFTP: {
+                        sftpServer = server
                     },
                     onEdit: {
                         editorRoute = .edit(server)

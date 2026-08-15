@@ -133,6 +133,60 @@ actor SSHConnectionService {
         await terminal.close()
     }
 
+    func listDirectory(serverID: UUID, path: String) async throws -> [RemoteFile] {
+        guard let client = clients[serverID], client.isConnected else {
+            throw SSHTransportError.notConnected
+        }
+
+        return try await client.withSFTP { sftp in
+            let names = try await sftp.listDirectory(atPath: path)
+            return names
+                .flatMap(\.components)
+                .filter { $0.filename != "." && $0.filename != ".." }
+                .map { component in
+                    let permissions = component.attributes.permissions ?? 0
+                    let isDirectory = component.longname.first == "d"
+                        || (permissions & UInt32(0o170000)) == UInt32(0o040000)
+                    let filePath = path == "/"
+                        ? "/\(component.filename)"
+                        : "\(path)/\(component.filename)"
+                    return RemoteFile(
+                        path: filePath,
+                        name: component.filename,
+                        isDirectory: isDirectory,
+                        size: component.attributes.size,
+                        modifiedAt: component.attributes.accessModificationTime?.modificationTime
+                    )
+                }
+                .sorted {
+                    if $0.isDirectory != $1.isDirectory {
+                        return $0.isDirectory
+                    }
+                    return $0.name.localizedStandardCompare($1.name) == .orderedAscending
+                }
+        }
+    }
+
+    func readRemoteFile(
+        serverID: UUID,
+        path: String,
+        maxBytes: Int = 512 * 1024
+    ) async throws -> String {
+        guard let client = clients[serverID], client.isConnected else {
+            throw SSHTransportError.notConnected
+        }
+
+        return try await client.withSFTP { sftp in
+            try await sftp.withFile(filePath: path, flags: .read) { file in
+                let buffer = try await file.readAll()
+                guard buffer.readableBytes <= maxBytes else {
+                    throw SFTPTransportError.fileTooLarge
+                }
+                return String(decoding: buffer.readableBytesView, as: UTF8.self)
+            }
+        }
+    }
+
     func isConnected(serverID: UUID) -> Bool {
         clients[serverID]?.isConnected == true
     }
@@ -228,6 +282,27 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
             return "This server has no trusted host key yet. Confirm its fingerprint before connecting."
         case .unsupportedPrivateKey:
             return "Only RSA and Ed25519 OpenSSH private keys are supported by the current transport."
+        }
+    }
+}
+
+struct RemoteFile: Equatable, Identifiable, Sendable {
+    let path: String
+    let name: String
+    let isDirectory: Bool
+    let size: UInt64?
+    let modifiedAt: Date?
+
+    var id: String { path }
+}
+
+enum SFTPTransportError: LocalizedError, Equatable, Sendable {
+    case fileTooLarge
+
+    var errorDescription: String? {
+        switch self {
+        case .fileTooLarge:
+            return "This remote file is too large to preview on the device."
         }
     }
 }

@@ -9,6 +9,7 @@ struct ServerCardView: View {
     let onTrustAndConnect: () -> Void
     let onDisconnect: () -> Void
     let onOpenTerminal: () -> Void
+    let onOpenSFTP: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -34,6 +35,11 @@ struct ServerCardView: View {
                             onOpenTerminal()
                         } label: {
                             Label("Open terminal", systemImage: "terminal")
+                        }
+                        Button {
+                            onOpenSFTP()
+                        } label: {
+                            Label("Open SFTP", systemImage: "folder")
                         }
                         Button {
                             onDisconnect()

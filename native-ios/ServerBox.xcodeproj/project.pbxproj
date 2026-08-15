@@ -23,6 +23,7 @@
 		A1000000000000000000003D /* SSHConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SSHConnectionService.swift */; };
 		A1000000000000000000003E /* SSHStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* SSHStatusService.swift */; };
 		A10000000000000000000042 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* TerminalView.swift */; };
+		A10000000000000000000043 /* SFTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* SFTPView.swift */; };
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
@@ -65,6 +66,7 @@
 		A10000000000000000000022 /* SSHConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionService.swift; sourceTree = "<group>"; };
 		A10000000000000000000023 /* SSHStatusService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHStatusService.swift; sourceTree = "<group>"; };
 		A10000000000000000000024 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
+		A10000000000000000000025 /* SFTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -167,6 +169,7 @@
 				A10000000000000000000019 /* ServerCardView.swift */,
 				A1000000000000000000001A /* ServerEditorView.swift */,
 				A10000000000000000000024 /* TerminalView.swift */,
+				A10000000000000000000025 /* SFTPView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -316,6 +319,7 @@
 				A1000000000000000000003D /* SSHConnectionService.swift in Sources */,
 				A1000000000000000000003E /* SSHStatusService.swift in Sources */,
 				A10000000000000000000042 /* TerminalView.swift in Sources */,
+				A10000000000000000000043 /* SFTPView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
