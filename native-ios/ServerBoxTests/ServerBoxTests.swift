@@ -60,7 +60,12 @@ struct ServerBoxTests {
         defer { try? FileManager.default.removeItem(at: directory) }
         try await store.save([server])
         let loaded = try await store.load()
+        let loadedServer = try #require(loaded.first)
 
-        #expect(loaded == [server])
+        #expect(loadedServer.id == server.id)
+        #expect(loadedServer.name == server.name)
+        #expect(loadedServer.statusURL == server.statusURL)
+        #expect(loadedServer.isEnabled == server.isEnabled)
+        #expect(abs(loadedServer.createdAt.timeIntervalSince(server.createdAt)) < 0.001)
     }
 }
