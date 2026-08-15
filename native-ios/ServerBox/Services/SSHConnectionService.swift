@@ -484,7 +484,7 @@ struct RemoteContainer: Equatable, Identifiable, Sendable {
     let runtime: String
 
     var id: String { identifier }
-    var isRunning: Bool { status.localizedCaseInsensitiveHasPrefix("up") }
+    var isRunning: Bool { status.lowercased().hasPrefix("up") }
 }
 
 enum ContainerAction: String, CaseIterable, Sendable {
