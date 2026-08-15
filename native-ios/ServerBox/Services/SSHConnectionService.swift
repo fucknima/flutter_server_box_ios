@@ -172,6 +172,7 @@ actor SSHConnectionService {
 enum SSHTransportError: LocalizedError, Equatable, Sendable {
     case notConnected
     case jumpCycle
+    case jumpServerMissing
     case hostKeyVerificationRequired
     case unsupportedPrivateKey
 
@@ -181,6 +182,8 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
             return "The server is not connected."
         case .jumpCycle:
             return "The jump-host chain contains a cycle."
+        case .jumpServerMissing:
+            return "A configured jump host could not be found."
         case .hostKeyVerificationRequired:
             return "This server has no trusted host key yet. Confirm its fingerprint before connecting."
         case .unsupportedPrivateKey:

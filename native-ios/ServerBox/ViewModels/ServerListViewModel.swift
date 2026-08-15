@@ -1,25 +1,36 @@
 import Combine
 import Foundation
 
+enum SSHConnectionState: Equatable, Sendable {
+    case disconnected
+    case connecting
+    case connected
+    case failed(String)
+}
+
 @MainActor
 final class ServerListViewModel: ObservableObject {
-    @Published private(set) var servers: [MonitorServer] = []
+    @Published private(set) var servers: [ServerConfiguration] = []
     @Published private(set) var states: [UUID: ServerStatusState] = [:]
+    @Published private(set) var connectionStates: [UUID: SSHConnectionState] = [:]
     @Published private(set) var isLoading = false
     @Published private(set) var isRefreshing = false
     @Published var storageError: String?
 
     private let store: ServerStore
     private let api: any MonitorAPIProtocol
+    private let credentialStore: SSHCredentialStore
     private var didLoad = false
     private var refreshGeneration = 0
 
     init(
         store: ServerStore = .live,
-        api: any MonitorAPIProtocol = MonitorAPI()
+        api: any MonitorAPIProtocol = MonitorAPI(),
+        credentialStore: SSHCredentialStore = SSHCredentialStore()
     ) {
         self.store = store
         self.api = api
+        self.credentialStore = credentialStore
     }
 
     func start() async {
@@ -47,6 +58,9 @@ final class ServerListViewModel: ObservableObject {
                 $0.name.localizedStandardCompare($1.name) == .orderedAscending
             }
             states = Dictionary(uniqueKeysWithValues: servers.map { ($0.id, .idle) })
+            connectionStates = Dictionary(
+                uniqueKeysWithValues: servers.map { ($0.id, .disconnected) }
+            )
             await refreshAll()
         } catch {
             storageError = error.localizedDescription
@@ -67,10 +81,23 @@ final class ServerListViewModel: ObservableObject {
 
         for server in servers where server.isEnabled {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
+
+            guard let statusURL = server.statusURL else {
+                states[server.id] = .idle
+                continue
+            }
+
             states[server.id] = .loading
 
             do {
-                let status = try await api.fetchStatus(for: server)
+                let monitorServer = MonitorServer(
+                    id: server.id,
+                    name: server.name,
+                    statusURL: statusURL,
+                    isEnabled: server.isEnabled,
+                    createdAt: server.createdAt
+                )
+                let status = try await api.fetchStatus(for: monitorServer)
                 guard generation == refreshGeneration else { return }
                 states[server.id] = .loaded(status)
             } catch is CancellationError {
@@ -82,11 +109,37 @@ final class ServerListViewModel: ObservableObject {
         }
     }
 
-    func state(for server: MonitorServer) -> ServerStatusState {
+    func state(for server: ServerConfiguration) -> ServerStatusState {
         states[server.id] ?? .idle
     }
 
-    func upsert(_ server: MonitorServer) {
+    func connectionState(for server: ServerConfiguration) -> SSHConnectionState {
+        connectionStates[server.id] ?? .disconnected
+    }
+
+    func save(_ draft: ServerEditorDraft) async throws {
+        try draft.configuration.validate()
+
+        let existingServer = servers.first { $0.id == draft.configuration.id }
+        if let credential = draft.credential {
+            try credentialStore.save(credential, for: draft.configuration.id)
+        } else {
+            let keepsExistingCredential: Bool
+            if let existingServer,
+               existingServer.authentication == draft.configuration.authentication {
+                keepsExistingCredential = try credentialStore.load(for: draft.configuration.id) != nil
+            } else {
+                keepsExistingCredential = false
+            }
+            guard keepsExistingCredential else {
+                throw ServerConfigurationError.missingCredential
+            }
+        }
+
+        upsert(draft.configuration)
+    }
+
+    func upsert(_ server: ServerConfiguration) {
         if let index = servers.firstIndex(where: { $0.id == server.id }) {
             servers[index] = server
         } else {
@@ -96,13 +149,80 @@ final class ServerListViewModel: ObservableObject {
             $0.name.localizedStandardCompare($1.name) == .orderedAscending
         }
         states[server.id] = .idle
+        connectionStates[server.id] = .disconnected
         persist()
     }
 
-    func delete(_ server: MonitorServer) {
+    func delete(_ server: ServerConfiguration) {
         servers.removeAll { $0.id == server.id }
         states.removeValue(forKey: server.id)
+        connectionStates.removeValue(forKey: server.id)
+        Task {
+            await SSHConnectionService.live.disconnect(serverID: server.id)
+            try? credentialStore.remove(for: server.id)
+        }
         persist()
+    }
+
+    func connect(
+        _ server: ServerConfiguration,
+        allowUnverifiedHostKey: Bool = false
+    ) async {
+        connectionStates[server.id] = .connecting
+
+        do {
+            guard let credential = try credentialStore.load(for: server.id) else {
+                throw ServerConfigurationError.missingCredential
+            }
+
+            var jumpChain: [SSHJumpHop] = []
+            for jumpID in server.normalizedJumpServerIDs {
+                guard let jumpServer = servers.first(where: { $0.id == jumpID }) else {
+                    throw SSHTransportError.jumpServerMissing
+                }
+                guard let jumpCredential = try credentialStore.load(for: jumpID) else {
+                    throw ServerConfigurationError.missingCredential
+                }
+                jumpChain.append(
+                    SSHJumpHop(
+                        server: jumpServer,
+                        credential: makeSSHCredential(jumpCredential),
+                        knownHostKey: jumpServer.knownHostKey
+                    )
+                )
+            }
+
+            try await SSHConnectionService.live.connect(
+                to: server,
+                credential: makeSSHCredential(credential),
+                knownHostKey: server.knownHostKey,
+                jumpChain: jumpChain,
+                allowUnverifiedHostKey: allowUnverifiedHostKey
+            )
+            connectionStates[server.id] = .connected
+        } catch is CancellationError {
+            connectionStates[server.id] = .disconnected
+        } catch {
+            connectionStates[server.id] = .failed(error.localizedDescription)
+        }
+    }
+
+    func disconnect(_ server: ServerConfiguration) async {
+        await SSHConnectionService.live.disconnect(serverID: server.id)
+        connectionStates[server.id] = .disconnected
+    }
+
+    func execute(_ command: String, on server: ServerConfiguration) async throws -> String {
+        try await SSHConnectionService.live.execute(command, on: server.id)
+    }
+
+    private func makeSSHCredential(_ credential: ServerCredentialInput) -> SSHCredential {
+        switch credential {
+        case .password(let password):
+            return .password(password)
+        case .privateKey(let privateKey, let passphrase):
+            return .privateKey(privateKey, passphrase: passphrase)
+        }
     }
 
     private func persist() {

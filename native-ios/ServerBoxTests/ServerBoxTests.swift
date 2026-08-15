@@ -67,8 +67,10 @@ struct ServerBoxTests {
         let fileURL = directory.appendingPathComponent("servers.json")
         let store = ServerStore(fileURL: fileURL)
         let statusURL = try #require(URL(string: "https://example.com/status"))
-        let server = MonitorServer(
+        let server = ServerConfiguration(
             name: "Test",
+            host: "example.com",
+            username: "root",
             statusURL: statusURL
         )
 
@@ -79,6 +81,7 @@ struct ServerBoxTests {
 
         #expect(loadedServer.id == server.id)
         #expect(loadedServer.name == server.name)
+        #expect(loadedServer.host == server.host)
         #expect(loadedServer.statusURL == server.statusURL)
         #expect(loadedServer.isEnabled == server.isEnabled)
         #expect(abs(loadedServer.createdAt.timeIntervalSince(server.createdAt)) < 0.001)

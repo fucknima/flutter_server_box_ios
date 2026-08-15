@@ -4,7 +4,8 @@ struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var viewModel: ServerListViewModel
     @State private var editorRoute: EditorRoute?
-    @State private var serverToDelete: MonitorServer?
+    @State private var serverToDelete: ServerConfiguration?
+    @State private var serverToTrust: ServerConfiguration?
 
     var body: some View {
         rootView
@@ -33,6 +34,32 @@ struct RootView: View {
                 }
             } message: {
                 Text(serverToDelete?.name ?? "")
+            }
+            .confirmationDialog(
+                "Trust this SSH host?",
+                isPresented: Binding(
+                    get: { serverToTrust != nil },
+                    set: { isPresented in
+                        if !isPresented { serverToTrust = nil }
+                    }
+                )
+            ) {
+                Button("Trust and connect") {
+                    if let serverToTrust {
+                        Task {
+                            await viewModel.connect(
+                                serverToTrust,
+                                allowUnverifiedHostKey: true
+                            )
+                        }
+                    }
+                    serverToTrust = nil
+                }
+                Button("Cancel", role: .cancel) {
+                    serverToTrust = nil
+                }
+            } message: {
+                Text("This explicitly skips host-key verification for this connection. Prefer saving a trusted host key before connecting when possible.")
             }
             .alert(
                 "Storage error",
@@ -81,8 +108,18 @@ struct RootView: View {
                 ServerCardView(
                     server: server,
                     state: viewModel.state(for: server),
+                    connectionState: viewModel.connectionState(for: server),
                     onRefresh: {
                         Task { await viewModel.refreshAll() }
+                    },
+                    onConnect: {
+                        Task { await viewModel.connect(server) }
+                    },
+                    onTrustAndConnect: {
+                        serverToTrust = server
+                    },
+                    onDisconnect: {
+                        Task { await viewModel.disconnect(server) }
                     },
                     onEdit: {
                         editorRoute = .edit(server)
@@ -124,12 +161,12 @@ struct RootView: View {
     private func editorView(for route: EditorRoute) -> some View {
         switch route {
         case .add:
-            ServerEditorView { server in
-                viewModel.upsert(server)
+            ServerEditorView { draft in
+                try await viewModel.save(draft)
             }
         case .edit(let server):
-            ServerEditorView(server: server) { updated in
-                viewModel.upsert(updated)
+            ServerEditorView(server: server) { draft in
+                try await viewModel.save(draft)
             }
         }
     }
@@ -147,8 +184,8 @@ struct RootView: View {
 
             Text(
                 viewModel.servers.isEmpty
-                    ? "Add a ServerBoxMonitor endpoint to begin."
-                    : "Updates automatically while this screen is active."
+                    ? "Add an SSH server to begin."
+                    : "SSH connections and optional monitor endpoints are managed here."
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -159,7 +196,7 @@ struct RootView: View {
 
 private enum EditorRoute: Identifiable {
     case add
-    case edit(MonitorServer)
+    case edit(ServerConfiguration)
 
     var id: String {
         switch self {
@@ -181,7 +218,7 @@ private struct EmptyStateView: View {
             VStack(spacing: DesignTokens.spaceS) {
                 Text("No servers yet")
                     .font(.headline)
-                Text("Connect a monitor endpoint to see CPU, memory, disk, and network status.")
+                Text("Connect an SSH server to open the native ServerBox tools.")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)

@@ -1,9 +1,13 @@
 import SwiftUI
 
 struct ServerCardView: View {
-    let server: MonitorServer
+    let server: ServerConfiguration
     let state: ServerStatusState
+    let connectionState: SSHConnectionState
     let onRefresh: () -> Void
+    let onConnect: () -> Void
+    let onTrustAndConnect: () -> Void
+    let onDisconnect: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -14,7 +18,7 @@ struct ServerCardView: View {
                     Text(displayName)
                         .font(.system(.headline, design: .rounded, weight: .semibold))
                         .lineLimit(1)
-                    Text(server.statusURL.absoluteString)
+                    Text("\(server.username)@\(server.host):\(server.port)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)
                         .lineLimit(1)
@@ -23,11 +27,37 @@ struct ServerCardView: View {
                 Spacer(minLength: DesignTokens.spaceS)
 
                 Menu {
-                    Button {
-                        onRefresh()
-                    } label: {
-                        Label("Refresh", systemImage: "arrow.clockwise")
+                    switch connectionState {
+                    case .connected:
+                        Button {
+                            onDisconnect()
+                        } label: {
+                            Label("Disconnect", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+                    default:
+                        Button {
+                            onConnect()
+                        } label: {
+                            Label("Connect", systemImage: "rectangle.portrait.and.arrow.right")
+                        }
+
+                        if server.knownHostKey == nil {
+                            Button {
+                                onTrustAndConnect()
+                            } label: {
+                                Label("Trust and connect", systemImage: "checkmark.shield")
+                            }
+                        }
                     }
+
+                    if server.statusURL != nil {
+                        Button {
+                            onRefresh()
+                        } label: {
+                            Label("Refresh monitor", systemImage: "arrow.clockwise")
+                        }
+                    }
+
                     Button {
                         onEdit()
                     } label: {
@@ -47,7 +77,8 @@ struct ServerCardView: View {
                 .accessibilityLabel("Actions for \(displayName)")
             }
 
-            content
+            connectionSummary
+            monitorContent
         }
         .padding(DesignTokens.spaceM)
         .background(DesignTokens.surface)
@@ -58,17 +89,34 @@ struct ServerCardView: View {
         }
     }
 
+    private var connectionSummary: some View {
+        HStack(spacing: DesignTokens.spaceS) {
+            Image(systemName: connectionIcon)
+                .foregroundStyle(connectionColor)
+            Text(connectionTitle)
+                .font(.subheadline.weight(.medium))
+            Spacer()
+            if case .connecting = connectionState {
+                ProgressView()
+            }
+        }
+    }
+
     @ViewBuilder
-    private var content: some View {
+    private var monitorContent: some View {
         switch state {
         case .idle:
-            Text("Ready to refresh")
-                .font(.subheadline)
-                .foregroundStyle(.secondary)
+            Text(
+                server.statusURL == nil
+                    ? "Connect over SSH to load server status."
+                    : "Ready to refresh the HTTP monitor."
+            )
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
         case .loading:
             HStack(spacing: DesignTokens.spaceS) {
                 ProgressView()
-                Text("Loading status...")
+                Text("Loading monitor status...")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -104,7 +152,7 @@ struct ServerCardView: View {
                 Image(systemName: "wifi.exclamationmark")
                     .foregroundStyle(.red)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Unable to load status")
+                    Text("Unable to load monitor status")
                         .font(.subheadline.weight(.semibold))
                     Text(message)
                         .font(.caption)
@@ -124,6 +172,45 @@ struct ServerCardView: View {
             return status.name
         }
         return server.name
+    }
+
+    private var connectionTitle: String {
+        switch connectionState {
+        case .disconnected:
+            return "SSH disconnected"
+        case .connecting:
+            return "Connecting over SSH..."
+        case .connected:
+            return "SSH connected"
+        case .failed(let message):
+            return message
+        }
+    }
+
+    private var connectionIcon: String {
+        switch connectionState {
+        case .disconnected:
+            return "circle"
+        case .connecting:
+            return "arrow.triangle.2.circlepath"
+        case .connected:
+            return "checkmark.circle.fill"
+        case .failed:
+            return "exclamationmark.circle.fill"
+        }
+    }
+
+    private var connectionColor: Color {
+        switch connectionState {
+        case .disconnected:
+            return .secondary
+        case .connecting:
+            return .orange
+        case .connected:
+            return .green
+        case .failed:
+            return .red
+        }
     }
 }
 

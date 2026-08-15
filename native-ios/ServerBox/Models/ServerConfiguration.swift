@@ -27,6 +27,10 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
     var environment: [String: String]
     var customSystem: RemoteSystem
     var disabledStatusTypes: Set<String>
+    var statusURL: URL?
+    var isEnabled: Bool
+    let createdAt: Date
+    var knownHostKey: String?
 
     init(
         id: UUID = UUID(),
@@ -43,7 +47,11 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         customCommands: [String: String] = [:],
         environment: [String: String] = [:],
         customSystem: RemoteSystem = .automatic,
-        disabledStatusTypes: Set<String> = []
+        disabledStatusTypes: Set<String> = [],
+        statusURL: URL? = nil,
+        isEnabled: Bool = true,
+        createdAt: Date = Date(),
+        knownHostKey: String? = nil
     ) {
         self.id = id
         self.name = name
@@ -60,6 +68,93 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         self.environment = environment
         self.customSystem = customSystem
         self.disabledStatusTypes = disabledStatusTypes
+        self.statusURL = statusURL
+        self.isEnabled = isEnabled
+        self.createdAt = createdAt
+        self.knownHostKey = knownHostKey
+    }
+
+    private enum CodingKeys: String, CodingKey {
+        case id
+        case name
+        case host
+        case port
+        case username
+        case authentication
+        case tags
+        case alternateEndpoint
+        case autoConnect
+        case jumpServerIDs
+        case proxyCommand
+        case customCommands
+        case environment
+        case customSystem
+        case disabledStatusTypes
+        case statusURL
+        case isEnabled
+        case createdAt
+        case knownHostKey
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        id = try container.decode(UUID.self, forKey: .id)
+        name = try container.decode(String.self, forKey: .name)
+        host = try container.decode(String.self, forKey: .host)
+        port = try container.decode(Int.self, forKey: .port)
+        username = try container.decode(String.self, forKey: .username)
+        authentication = try container.decode(
+            ServerAuthenticationReference.self,
+            forKey: .authentication
+        )
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        alternateEndpoint = try container.decodeIfPresent(
+            AlternateEndpoint.self,
+            forKey: .alternateEndpoint
+        )
+        autoConnect = try container.decodeIfPresent(Bool.self, forKey: .autoConnect) ?? true
+        jumpServerIDs = try container.decodeIfPresent([UUID].self, forKey: .jumpServerIDs) ?? []
+        proxyCommand = try container.decodeIfPresent(String.self, forKey: .proxyCommand)
+        customCommands = try container.decodeIfPresent(
+            [String: String].self,
+            forKey: .customCommands
+        ) ?? [:]
+        environment = try container.decodeIfPresent(
+            [String: String].self,
+            forKey: .environment
+        ) ?? [:]
+        customSystem = try container.decodeIfPresent(RemoteSystem.self, forKey: .customSystem) ?? .automatic
+        disabledStatusTypes = try container.decodeIfPresent(
+            Set<String>.self,
+            forKey: .disabledStatusTypes
+        ) ?? []
+        statusURL = try container.decodeIfPresent(URL.self, forKey: .statusURL)
+        isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
+        createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
+        knownHostKey = try container.decodeIfPresent(String.self, forKey: .knownHostKey)
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        try container.encode(id, forKey: .id)
+        try container.encode(name, forKey: .name)
+        try container.encode(host, forKey: .host)
+        try container.encode(port, forKey: .port)
+        try container.encode(username, forKey: .username)
+        try container.encode(authentication, forKey: .authentication)
+        try container.encode(tags, forKey: .tags)
+        try container.encodeIfPresent(alternateEndpoint, forKey: .alternateEndpoint)
+        try container.encode(autoConnect, forKey: .autoConnect)
+        try container.encode(jumpServerIDs, forKey: .jumpServerIDs)
+        try container.encodeIfPresent(proxyCommand, forKey: .proxyCommand)
+        try container.encode(customCommands, forKey: .customCommands)
+        try container.encode(environment, forKey: .environment)
+        try container.encode(customSystem, forKey: .customSystem)
+        try container.encode(disabledStatusTypes, forKey: .disabledStatusTypes)
+        try container.encodeIfPresent(statusURL, forKey: .statusURL)
+        try container.encode(isEnabled, forKey: .isEnabled)
+        try container.encode(createdAt, forKey: .createdAt)
+        try container.encodeIfPresent(knownHostKey, forKey: .knownHostKey)
     }
 
     var normalizedJumpServerIDs: [UUID] {
@@ -79,6 +174,13 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         }
         guard !username.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw ServerConfigurationError.emptyUsername
+        }
+        if let statusURL {
+            guard let scheme = statusURL.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  statusURL.host?.isEmpty == false else {
+                throw ServerConfigurationError.invalidStatusURL
+            }
         }
         if !normalizedJumpServerIDs.isEmpty,
            proxyCommand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
@@ -107,6 +209,8 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
     case emptyHost
     case invalidPort
     case emptyUsername
+    case invalidStatusURL
+    case missingCredential
     case jumpAndProxyConflict
 
     var errorDescription: String? {
@@ -119,8 +223,22 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
             return "The port must be between 1 and 65535."
         case .emptyUsername:
             return "Enter an SSH username."
+        case .invalidStatusURL:
+            return "Enter a valid HTTP or HTTPS status URL."
+        case .missingCredential:
+            return "Enter a password or private key for this server."
         case .jumpAndProxyConflict:
             return "A jump host and a proxy command cannot be used together."
         }
     }
+}
+
+enum ServerCredentialInput: Equatable, Sendable {
+    case password(String)
+    case privateKey(String, passphrase: String?)
+}
+
+struct ServerEditorDraft: Sendable {
+    let configuration: ServerConfiguration
+    let credential: ServerCredentialInput?
 }
