@@ -10,6 +10,7 @@ struct ServerCardView: View {
     let onDisconnect: () -> Void
     let onOpenTerminal: () -> Void
     let onOpenSFTP: () -> Void
+    let onOpenProcesses: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -40,6 +41,11 @@ struct ServerCardView: View {
                             onOpenSFTP()
                         } label: {
                             Label("Open SFTP", systemImage: "folder")
+                        }
+                        Button {
+                            onOpenProcesses()
+                        } label: {
+                            Label("Processes", systemImage: "cpu")
                         }
                         Button {
                             onDisconnect()

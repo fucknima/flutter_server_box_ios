@@ -110,4 +110,18 @@ struct ServerBoxTests {
         #expect(status.disk == "7.1G / 30.0G")
         #expect(status.network == "1.2M / 3.4M")
     }
+
+    @Test
+    func remoteProcessParserKeepsCommandArguments() {
+        let processes = RemoteProcessParser.parse(
+            "42 root 12.5 1.2 bash bash --login\n" +
+                "bad row\n" +
+                "7 user 0.0 0.1 launchd"
+        )
+
+        #expect(processes.count == 2)
+        #expect(processes.first?.pid == 42)
+        #expect(processes.first?.command == "bash --login")
+        #expect(processes.last?.command == "launchd")
+    }
 }

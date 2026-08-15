@@ -8,6 +8,7 @@ struct RootView: View {
     @State private var serverToTrust: ServerConfiguration?
     @State private var terminalServer: ServerConfiguration?
     @State private var sftpServer: ServerConfiguration?
+    @State private var processesServer: ServerConfiguration?
 
     var body: some View {
         rootView
@@ -31,6 +32,20 @@ struct RootView: View {
                     },
                     readFile: { path in
                         try await viewModel.readFile(for: server, path: path)
+                    }
+                )
+            }
+            .sheet(item: $processesServer) { server in
+                ProcessesView(
+                    listProcesses: {
+                        try await viewModel.listProcesses(for: server)
+                    },
+                    terminateProcess: { process, signal in
+                        try await viewModel.terminateProcess(
+                            process,
+                            on: server,
+                            signal: signal
+                        )
                     }
                 )
             }
@@ -143,6 +158,9 @@ struct RootView: View {
                     },
                     onOpenSFTP: {
                         sftpServer = server
+                    },
+                    onOpenProcesses: {
+                        processesServer = server
                     },
                     onEdit: {
                         editorRoute = .edit(server)

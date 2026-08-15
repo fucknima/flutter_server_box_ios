@@ -187,6 +187,24 @@ actor SSHConnectionService {
         }
     }
 
+    func listProcesses(serverID: UUID) async throws -> [RemoteProcess] {
+        let raw = try await execute(
+            "ps -eo pid=,user=,%cpu=,%mem=,comm=,args= --sort=-%cpu 2>/dev/null || ps -axo pid,user,%cpu,%mem,command",
+            on: serverID,
+            maxResponseSize: 1024 * 1024
+        )
+        return RemoteProcessParser.parse(raw)
+    }
+
+    func terminateProcess(
+        serverID: UUID,
+        pid: Int,
+        signal: ProcessSignal = .terminate
+    ) async throws {
+        guard pid > 0 else { throw ProcessControlError.invalidPID }
+        _ = try await execute("kill -\(signal.rawValue) \(pid)", on: serverID)
+    }
+
     func isConnected(serverID: UUID) -> Bool {
         clients[serverID]?.isConnected == true
     }
@@ -294,6 +312,59 @@ struct RemoteFile: Equatable, Identifiable, Sendable {
     let modifiedAt: Date?
 
     var id: String { path }
+}
+
+struct RemoteProcess: Equatable, Identifiable, Sendable {
+    let pid: Int
+    let user: String
+    let cpuPercent: Double
+    let memoryPercent: Double
+    let command: String
+
+    var id: Int { pid }
+}
+
+enum ProcessSignal: Int, CaseIterable, Sendable {
+    case terminate = 15
+    case kill = 9
+}
+
+enum RemoteProcessParser {
+    static func parse(_ raw: String) -> [RemoteProcess] {
+        raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
+            let fields = line.split(
+                whereSeparator: { $0 == " " || $0 == "\t" },
+                maxSplits: 5,
+                omittingEmptySubsequences: true
+            )
+            guard fields.count >= 5,
+                  let pid = Int(fields[0]),
+                  pid > 0,
+                  let cpu = Double(String(fields[2]).replacingOccurrences(of: ",", with: ".")),
+                  let memory = Double(String(fields[3]).replacingOccurrences(of: ",", with: ".")) else {
+                return nil
+            }
+
+            let command = fields.count > 5
+                ? String(fields[5])
+                : String(fields[4])
+            return RemoteProcess(
+                pid: pid,
+                user: String(fields[1]),
+                cpuPercent: cpu,
+                memoryPercent: memory,
+                command: command
+            )
+        }
+    }
+}
+
+enum ProcessControlError: LocalizedError, Equatable, Sendable {
+    case invalidPID
+
+    var errorDescription: String? {
+        "The process ID is invalid."
+    }
 }
 
 enum SFTPTransportError: LocalizedError, Equatable, Sendable {

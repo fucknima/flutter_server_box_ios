@@ -265,6 +265,22 @@ final class ServerListViewModel: ObservableObject {
         try await SSHConnectionService.live.readRemoteFile(serverID: server.id, path: path)
     }
 
+    func listProcesses(for server: ServerConfiguration) async throws -> [RemoteProcess] {
+        try await SSHConnectionService.live.listProcesses(serverID: server.id)
+    }
+
+    func terminateProcess(
+        _ process: RemoteProcess,
+        on server: ServerConfiguration,
+        signal: ProcessSignal = .terminate
+    ) async throws {
+        try await SSHConnectionService.live.terminateProcess(
+            serverID: server.id,
+            pid: process.pid,
+            signal: signal
+        )
+    }
+
     private func makeSSHCredential(_ credential: ServerCredentialInput) -> SSHCredential {
         switch credential {
         case .password(let password):
