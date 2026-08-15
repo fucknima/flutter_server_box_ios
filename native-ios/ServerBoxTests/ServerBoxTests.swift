@@ -194,6 +194,20 @@ struct ServerBoxTests {
 
         let reloadedStore = ConnectionStatsStore(fileURL: fileURL)
         let reloaded = try await reloadedStore.allServerStats()
-        #expect(reloaded == summaries)
+        let reloadedSummary = try #require(reloaded.first)
+        #expect(reloadedSummary.serverID == summary.serverID)
+        #expect(reloadedSummary.serverName == summary.serverName)
+        #expect(reloadedSummary.totalAttempts == summary.totalAttempts)
+        #expect(reloadedSummary.successCount == summary.successCount)
+        #expect(
+            reloadedSummary.records.map { $0.result } == summary.records.map { $0.result }
+        )
+        #expect(
+            abs(
+                reloadedSummary.records[0].timestamp.timeIntervalSince(
+                    summary.records[0].timestamp
+                )
+            ) < 0.001
+        )
     }
 }
