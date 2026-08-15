@@ -333,9 +333,9 @@ enum RemoteProcessParser {
     static func parse(_ raw: String) -> [RemoteProcess] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
             let fields = line.split(
-                whereSeparator: { $0 == " " || $0 == "\t" },
                 maxSplits: 5,
-                omittingEmptySubsequences: true
+                omittingEmptySubsequences: true,
+                whereSeparator: { $0 == " " || $0 == "\t" }
             )
             guard fields.count >= 5,
                   let pid = Int(fields[0]),
