@@ -7,7 +7,7 @@ struct ConnectionStatsView: View {
     @State private var isShowingClearConfirmation = false
 
     @MainActor
-    init(viewModel: ConnectionStatsViewModel = ConnectionStatsViewModel()) {
+    init(viewModel: ConnectionStatsViewModel) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
 

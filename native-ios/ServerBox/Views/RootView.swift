@@ -76,7 +76,7 @@ struct RootView: View {
                 )
             }
             .sheet(isPresented: $showingConnectionStats) {
-                ConnectionStatsView()
+                ConnectionStatsView(viewModel: ConnectionStatsViewModel())
             }
             .confirmationDialog(
                 "Delete this server?",
