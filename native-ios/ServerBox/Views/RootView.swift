@@ -18,13 +18,21 @@ struct RootView: View {
             .sheet(item: $editorRoute) { route in editorView(for: route) }
             .confirmationDialog(
                 "Delete this server?",
-                item: $serverToDelete
-            ) { server in
+                isPresented: Binding(
+                    get: { serverToDelete != nil },
+                    set: { isPresented in
+                        if !isPresented { serverToDelete = nil }
+                    }
+                )
+                ) {
                 Button("Delete", role: .destructive) {
-                    viewModel.delete(server)
+                    if let serverToDelete {
+                        viewModel.delete(serverToDelete)
+                    }
+                    serverToDelete = nil
                 }
-            } message: { server in
-                Text(server.name)
+            } message: {
+                Text(serverToDelete?.name ?? "")
             }
             .alert(
                 "Storage error",
