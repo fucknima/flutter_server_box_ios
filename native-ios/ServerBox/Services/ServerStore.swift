@@ -27,7 +27,26 @@ actor ServerStore {
         do {
             let data = try Data(contentsOf: fileURL)
             let decoder = JSONDecoder()
-            decoder.dateDecodingStrategy = .iso8601
+            decoder.dateDecodingStrategy = .custom { decoder in
+                let container = try decoder.singleValueContainer()
+                let value = try container.decode(String.self)
+
+                let fractionalFormatter = ISO8601DateFormatter()
+                fractionalFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+                if let date = fractionalFormatter.date(from: value) {
+                    return date
+                }
+
+                let standardFormatter = ISO8601DateFormatter()
+                standardFormatter.formatOptions = [.withInternetDateTime]
+                guard let date = standardFormatter.date(from: value) else {
+                    throw DecodingError.dataCorruptedError(
+                        in: container,
+                        debugDescription: "Invalid ISO8601 date."
+                    )
+                }
+                return date
+            }
             return try decoder.decode([MonitorServer].self, from: data)
         } catch {
             throw ServerStoreError.invalidData
@@ -42,7 +61,12 @@ actor ServerStore {
         )
 
         let encoder = JSONEncoder()
-        encoder.dateEncodingStrategy = .iso8601
+        encoder.dateEncodingStrategy = .custom { date, encoder in
+            let formatter = ISO8601DateFormatter()
+            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            var container = encoder.singleValueContainer()
+            try container.encode(formatter.string(from: date))
+        }
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
         do {
