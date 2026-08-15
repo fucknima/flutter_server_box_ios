@@ -39,7 +39,7 @@ struct ServerEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("SSH connection") {
+                Section {
                     TextField("Display name", text: $name)
                         .textInputAutocapitalization(.words)
 
@@ -61,24 +61,30 @@ struct ServerEditorView: View {
                     }
 
                     credentialFields
+                } header: {
+                    Text("SSH connection")
                 } footer: {
                     Text("Credentials are stored in the iOS Keychain and are never written to the server file.")
                 }
 
-                Section("Status monitor (optional)") {
+                Section {
                     TextField("https://example.com/status", text: $statusURLText)
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Status monitor (optional)")
                 } footer: {
                     Text("If supplied, the existing HTTP monitor is refreshed alongside the SSH connection.")
                 }
 
-                Section("Connection") {
+                Section {
                     Toggle("Connect automatically", isOn: $autoConnect)
                     Text("Unknown SSH host keys require an explicit trust action from the server card.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
+                } header: {
+                    Text("Connection")
                 }
 
                 if let validationMessage {
