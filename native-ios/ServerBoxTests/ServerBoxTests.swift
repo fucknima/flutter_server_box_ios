@@ -46,6 +46,21 @@ struct ServerBoxTests {
     }
 
     @Test
+    func serverConfigurationKeepsJumpAndProxyModesExclusive() {
+        let configuration = ServerConfiguration(
+            name: "Jumped server",
+            host: "example.com",
+            username: "root",
+            jumpServerIDs: [UUID()],
+            proxyCommand: "socat - PROXY:proxy:22"
+        )
+
+        #expect(throws: ServerConfigurationError.self) {
+            try configuration.validate()
+        }
+    }
+
+    @Test
     func serverStoreRoundTripsCodableData() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ServerBoxTests-\(UUID().uuidString)", isDirectory: true)

@@ -1,11 +1,21 @@
 name: ServerBox
 options:
   deploymentTarget:
-    iOS: "16.0"
+    iOS: "17.0"
   createIntermediateGroups: true
 settings:
   base:
     SWIFT_VERSION: "5.9"
+packages:
+  Citadel:
+    url: https://github.com/orlandos-nl/Citadel.git
+    from: "0.12.1"
+  SwiftCrypto:
+    url: https://github.com/apple/swift-crypto.git
+    from: "3.12.3"
+  NIOSSH:
+    url: https://github.com/Wellz26/swift-nio-ssh.git
+    from: "0.3.4"
 targets:
   ServerBox:
     type: application
@@ -18,6 +28,12 @@ targets:
       - path: ServerBox/Resources
         excludes:
           - Info.plist
+    dependencies:
+      - package: Citadel
+      - package: SwiftCrypto
+        product: Crypto
+      - package: NIOSSH
+        product: NIOSSH
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native

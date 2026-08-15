@@ -76,11 +76,11 @@ If I forgot to add your name to the contributors list, please add a comment in t
 
 ### Native iOS SwiftUI port
 
-The first native iOS implementation is in `native-ios/`. It is an independent
-SwiftUI app and currently ports the ServerBoxMonitor `/status` workflow:
-endpoint management, persistent configuration, status cards, refresh, and
-error handling. SSH, terminal, SFTP, Docker, and systemd remain in the Flutter
-app until their native transport and security requirements are implemented.
+The native iOS replacement is being built in `native-ios/` as an independent
+SwiftUI app. The migration keeps the existing Flutter target while moving the
+full feature set module by module. The current native milestone covers the
+ServerBoxMonitor `/status` workflow; the parity matrix is in
+`native-ios/MIGRATION.md`.
 
 Open `native-ios/ServerBox.xcodeproj` on macOS with Xcode 16 or later.
 

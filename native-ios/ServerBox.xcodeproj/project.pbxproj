@@ -18,9 +18,15 @@
 		A10000000000000000000038 /* RootView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000018 /* RootView.swift */; };
 		A10000000000000000000039 /* ServerCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000019 /* ServerCardView.swift */; };
 		A1000000000000000000003A /* ServerEditorView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001A /* ServerEditorView.swift */; };
+		A1000000000000000000003B /* ServerConfiguration.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000020 /* ServerConfiguration.swift */; };
+		A1000000000000000000003C /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* KeychainStore.swift */; };
+		A1000000000000000000003D /* SSHConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SSHConnectionService.swift */; };
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
+		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
+		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
+		A1000000000000000000009A /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000099 /* NIOSSH */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -51,6 +57,9 @@
 		A1000000000000000000001C /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		A1000000000000000000001D /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		A1000000000000000000001F /* ServerBoxTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerBoxTests.swift; sourceTree = "<group>"; };
+		A10000000000000000000020 /* ServerConfiguration.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerConfiguration.swift; sourceTree = "<group>"; };
+		A10000000000000000000021 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
+		A10000000000000000000022 /* SSHConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionService.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -58,6 +67,9 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				A10000000000000000000094 /* Citadel in Frameworks */,
+				A10000000000000000000097 /* Crypto in Frameworks */,
+				A1000000000000000000009A /* NIOSSH in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -109,6 +121,7 @@
 				A10000000000000000000011 /* MonitorServer.swift */,
 				A10000000000000000000012 /* ServerStatus.swift */,
 				A10000000000000000000013 /* ServerStatusState.swift */,
+				A10000000000000000000020 /* ServerConfiguration.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -118,6 +131,8 @@
 			children = (
 				A10000000000000000000014 /* MonitorAPI.swift */,
 				A10000000000000000000015 /* ServerStore.swift */,
+				A10000000000000000000021 /* KeychainStore.swift */,
+				A10000000000000000000022 /* SSHConnectionService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -181,6 +196,11 @@
 			);
 			dependencies = (
 			);
+			packageProductDependencies = (
+				A10000000000000000000091 /* Citadel */,
+				A10000000000000000000096 /* Crypto */,
+				A10000000000000000000099 /* NIOSSH */,
+			);
 			name = ServerBox;
 			productName = ServerBox;
 			productReference = A1000000000000000000000C /* ServerBox.app */;
@@ -232,6 +252,11 @@
 			);
 			mainGroup = A10000000000000000000002;
 			productRefGroup = A10000000000000000000003 /* Products */;
+			packageReferences = (
+				A10000000000000000000090 /* XCRemoteSwiftPackageReference "Citadel" */,
+				A10000000000000000000095 /* XCRemoteSwiftPackageReference "swift-crypto" */,
+				A10000000000000000000098 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
+			);
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
@@ -276,6 +301,9 @@
 				A10000000000000000000038 /* RootView.swift in Sources */,
 				A10000000000000000000039 /* ServerCardView.swift in Sources */,
 				A1000000000000000000003A /* ServerEditorView.swift in Sources */,
+				A1000000000000000000003B /* ServerConfiguration.swift in Sources */,
+				A1000000000000000000003C /* KeychainStore.swift in Sources */,
+				A1000000000000000000003D /* SSHConnectionService.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -328,7 +356,7 @@
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ServerBox/Resources/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -350,7 +378,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = NO;
 				INFOPLIST_FILE = ServerBox/Resources/Info.plist;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
@@ -371,7 +399,7 @@
 				CODE_SIGN_STYLE = Automatic;
 				ENABLE_TESTABILITY = YES;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tech.lolli.serverbox.native.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -386,7 +414,7 @@
 				BUNDLE_LOADER = "$(TEST_HOST)";
 				CODE_SIGN_STYLE = Automatic;
 				GENERATE_INFOPLIST_FILE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 17.0;
 				PRODUCT_BUNDLE_IDENTIFIER = tech.lolli.serverbox.native.tests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = iphoneos;
@@ -427,6 +455,57 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000090 /* XCRemoteSwiftPackageReference "Citadel" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/orlandos-nl/Citadel.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 0.12.1;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A10000000000000000000095 /* XCRemoteSwiftPackageReference "swift-crypto" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-crypto.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 3.12.3;
+			};
+		};
+		A10000000000000000000098 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/Wellz26/swift-nio-ssh.git";
+			requirement = {
+				kind = upToNextMinorVersion;
+				minimumVersion = 0.3.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000091 /* Citadel */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000090 /* XCRemoteSwiftPackageReference "Citadel" */;
+			productName = Citadel;
+		};
+/* End XCSwiftPackageProductDependency section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A10000000000000000000096 /* Crypto */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000095 /* XCRemoteSwiftPackageReference "swift-crypto" */;
+			productName = Crypto;
+		};
+		A10000000000000000000099 /* NIOSSH */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A10000000000000000000098 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
+			productName = NIOSSH;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A10000000000000000000001 /* Project object */;
 }

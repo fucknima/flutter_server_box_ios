@@ -1,11 +1,12 @@
 # Native iOS SwiftUI port
 
-This directory contains the first native iOS implementation of ServerBox. It
-does not embed Flutter.
+This directory contains the native iOS replacement implementation of ServerBox.
+It does not embed Flutter. The migration is intentionally incremental so the
+existing SSH and server-management behavior is not silently lost.
 
-## Current scope
+## Current milestone
 
-The native app implements the Monitor `/status` workflow:
+The native app currently implements the Monitor `/status` workflow:
 
 - Add, edit, delete, and persist monitor endpoints.
 - Fetch CPU, memory, disk, and network values with `URLSession`.
@@ -31,7 +32,7 @@ The endpoint format is the one used by ServerBoxMonitor:
 
 ## Open in Xcode
 
-Open `ServerBox.xcodeproj`. The project targets iOS 16 and supports iPhone and
+Open `ServerBox.xcodeproj`. The project targets iOS 17 and supports iPhone and
 iPad. If XcodeGen is available, `project.yml` describes the same project.
 
 GitHub Actions runs the same test target on an iOS Simulator and uploads an
@@ -46,6 +47,5 @@ testing must be run on macOS.
 
 The original Flutter app has a much larger SSH feature set. SSH terminal,
 SFTP, jump hosts, Docker, process management, and systemd are intentionally
-not claimed as migrated here. They need native SSH transport, host-key
-verification, Keychain-backed credentials, and feature-specific tests before
-being added to the app.
+not yet claimed as migrated here. See `MIGRATION.md` for the complete parity
+matrix and the native transport boundary.
