@@ -281,6 +281,38 @@ final class ServerListViewModel: ObservableObject {
         )
     }
 
+    func listSystemServices(for server: ServerConfiguration) async throws -> [RemoteSystemService] {
+        try await SSHConnectionService.live.listSystemServices(serverID: server.id)
+    }
+
+    func controlSystemService(
+        _ service: RemoteSystemService,
+        on server: ServerConfiguration,
+        action: SystemServiceAction
+    ) async throws {
+        try await SSHConnectionService.live.controlSystemService(
+            serverID: server.id,
+            unit: service.unit,
+            action: action
+        )
+    }
+
+    func listContainers(for server: ServerConfiguration) async throws -> [RemoteContainer] {
+        try await SSHConnectionService.live.listDockerContainers(serverID: server.id)
+    }
+
+    func controlContainer(
+        _ container: RemoteContainer,
+        on server: ServerConfiguration,
+        action: ContainerAction
+    ) async throws {
+        try await SSHConnectionService.live.controlDockerContainer(
+            serverID: server.id,
+            container: container,
+            action: action
+        )
+    }
+
     private func makeSSHCredential(_ credential: ServerCredentialInput) -> SSHCredential {
         switch credential {
         case .password(let password):

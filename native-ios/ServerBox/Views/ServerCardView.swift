@@ -11,6 +11,7 @@ struct ServerCardView: View {
     let onOpenTerminal: () -> Void
     let onOpenSFTP: () -> Void
     let onOpenProcesses: () -> Void
+    let onOpenTools: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -46,6 +47,11 @@ struct ServerCardView: View {
                             onOpenProcesses()
                         } label: {
                             Label("Processes", systemImage: "cpu")
+                        }
+                        Button {
+                            onOpenTools()
+                        } label: {
+                            Label("Server tools", systemImage: "wrench.and.screwdriver")
                         }
                         Button {
                             onDisconnect()

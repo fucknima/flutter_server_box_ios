@@ -205,6 +205,62 @@ actor SSHConnectionService {
         _ = try await execute("kill -\(signal.rawValue) \(pid)", on: serverID)
     }
 
+    func listSystemServices(serverID: UUID) async throws -> [RemoteSystemService] {
+        let raw = try await execute(
+            "systemctl list-units --type=service --all --no-legend --no-pager --plain",
+            on: serverID,
+            maxResponseSize: 1024 * 1024
+        )
+        return RemoteSystemServiceParser.parse(raw)
+    }
+
+    func controlSystemService(
+        serverID: UUID,
+        unit: String,
+        action: SystemServiceAction
+    ) async throws {
+        guard RemoteSystemServiceParser.isSafeUnit(unit) else {
+            throw SystemServiceControlError.invalidUnit
+        }
+        _ = try await execute("systemctl \(action.rawValue) \(unit)", on: serverID)
+    }
+
+    func listDockerContainers(serverID: UUID) async throws -> [RemoteContainer] {
+        let runtime = try await containerRuntime(serverID: serverID)
+        let raw = try await execute(
+            "\(runtime) ps -a --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.Status}}'",
+            on: serverID,
+            maxResponseSize: 1024 * 1024
+        )
+        return RemoteContainerParser.parse(raw, runtime: runtime)
+    }
+
+    func controlDockerContainer(
+        serverID: UUID,
+        container: RemoteContainer,
+        action: ContainerAction
+    ) async throws {
+        guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
+            throw ContainerControlError.invalidIdentifier
+        }
+        _ = try await execute(
+            "\(container.runtime) \(action.rawValue) \(container.identifier)",
+            on: serverID
+        )
+    }
+
+    private func containerRuntime(serverID: UUID) async throws -> String {
+        let raw = try await execute(
+            "if command -v docker >/dev/null 2>&1; then printf docker; elif command -v podman >/dev/null 2>&1; then printf podman; else exit 127; fi",
+            on: serverID
+        )
+        let runtime = raw.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard runtime == "docker" || runtime == "podman" else {
+            throw ContainerControlError.runtimeUnavailable
+        }
+        return runtime
+    }
+
     func isConnected(serverID: UUID) -> Bool {
         clients[serverID]?.isConnected == true
     }
@@ -364,6 +420,112 @@ enum ProcessControlError: LocalizedError, Equatable, Sendable {
 
     var errorDescription: String? {
         "The process ID is invalid."
+    }
+}
+
+struct RemoteSystemService: Equatable, Identifiable, Sendable {
+    let unit: String
+    let activeState: String
+    let subState: String
+    let description: String
+
+    var id: String { unit }
+    var isActive: Bool { activeState == "active" }
+}
+
+enum SystemServiceAction: String, CaseIterable, Sendable {
+    case start
+    case stop
+    case restart
+}
+
+enum RemoteSystemServiceParser {
+    static func parse(_ raw: String) -> [RemoteSystemService] {
+        raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
+            let fields = line.split(
+                maxSplits: 4,
+                omittingEmptySubsequences: true,
+                whereSeparator: { $0 == " " || $0 == "\t" }
+            )
+            guard fields.count >= 4,
+                  fields[0].hasSuffix(".service") else {
+                return nil
+            }
+
+            return RemoteSystemService(
+                unit: String(fields[0]),
+                activeState: String(fields[2]),
+                subState: String(fields[3]),
+                description: fields.count > 4 ? String(fields[4]) : ""
+            )
+        }
+    }
+
+    static func isSafeUnit(_ unit: String) -> Bool {
+        !unit.isEmpty && unit.hasSuffix(".service") && unit.allSatisfy {
+            $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" || $0 == "@"
+        }
+    }
+}
+
+enum SystemServiceControlError: LocalizedError, Equatable, Sendable {
+    case invalidUnit
+
+    var errorDescription: String? {
+        "The system service name is invalid."
+    }
+}
+
+struct RemoteContainer: Equatable, Identifiable, Sendable {
+    let identifier: String
+    let name: String
+    let image: String
+    let status: String
+    let runtime: String
+
+    var id: String { identifier }
+    var isRunning: Bool { status.localizedCaseInsensitiveHasPrefix("up") }
+}
+
+enum ContainerAction: String, CaseIterable, Sendable {
+    case start
+    case stop
+    case restart
+}
+
+enum RemoteContainerParser {
+    static func parse(_ raw: String, runtime: String) -> [RemoteContainer] {
+        raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
+            let fields = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false)
+            guard fields.count == 4, !fields[0].isEmpty else { return nil }
+            return RemoteContainer(
+                identifier: String(fields[0]),
+                name: String(fields[1]),
+                image: String(fields[2]),
+                status: String(fields[3]),
+                runtime: runtime
+            )
+        }
+    }
+
+    static func isSafeIdentifier(_ identifier: String) -> Bool {
+        !identifier.isEmpty && identifier.allSatisfy {
+            $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_"
+        }
+    }
+}
+
+enum ContainerControlError: LocalizedError, Equatable, Sendable {
+    case invalidIdentifier
+    case runtimeUnavailable
+
+    var errorDescription: String? {
+        switch self {
+        case .invalidIdentifier:
+            return "The container identifier is invalid."
+        case .runtimeUnavailable:
+            return "Neither Docker nor Podman is available on this server."
+        }
     }
 }
 

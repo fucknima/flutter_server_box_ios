@@ -25,6 +25,7 @@
 		A10000000000000000000042 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* TerminalView.swift */; };
 		A10000000000000000000043 /* SFTPView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000025 /* SFTPView.swift */; };
 		A10000000000000000000044 /* ProcessesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000026 /* ProcessesView.swift */; };
+		A10000000000000000000045 /* ServerToolsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000027 /* ServerToolsView.swift */; };
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
@@ -69,6 +70,7 @@
 		A10000000000000000000024 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 		A10000000000000000000025 /* SFTPView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPView.swift; sourceTree = "<group>"; };
 		A10000000000000000000026 /* ProcessesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ProcessesView.swift; sourceTree = "<group>"; };
+		A10000000000000000000027 /* ServerToolsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerToolsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -173,6 +175,7 @@
 				A10000000000000000000024 /* TerminalView.swift */,
 				A10000000000000000000025 /* SFTPView.swift */,
 				A10000000000000000000026 /* ProcessesView.swift */,
+				A10000000000000000000027 /* ServerToolsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -324,6 +327,7 @@
 				A10000000000000000000042 /* TerminalView.swift in Sources */,
 				A10000000000000000000043 /* SFTPView.swift in Sources */,
 				A10000000000000000000044 /* ProcessesView.swift in Sources */,
+				A10000000000000000000045 /* ServerToolsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

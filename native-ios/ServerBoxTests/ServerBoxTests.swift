@@ -124,4 +124,24 @@ struct ServerBoxTests {
         #expect(processes.first?.command == "bash --login")
         #expect(processes.last?.command == "launchd")
     }
+
+    @Test
+    func remoteToolParsersDecodeServicesAndContainers() {
+        let services = RemoteSystemServiceParser.parse(
+            "ssh.service loaded active running OpenSSH server\n" +
+                "cron.service loaded inactive dead Scheduler"
+        )
+        let containers = RemoteContainerParser.parse(
+            "abc123\tweb\tnginx:latest\tUp 2 hours\n" +
+                "def456\tdb\tpostgres\tExited (0) 1 hour ago",
+            runtime: "docker"
+        )
+
+        #expect(services.count == 2)
+        #expect(services.first?.isActive == true)
+        #expect(services.first?.description == "OpenSSH server")
+        #expect(containers.count == 2)
+        #expect(containers.first?.isRunning == true)
+        #expect(containers.last?.isRunning == false)
+    }
 }

@@ -9,6 +9,7 @@ struct RootView: View {
     @State private var terminalServer: ServerConfiguration?
     @State private var sftpServer: ServerConfiguration?
     @State private var processesServer: ServerConfiguration?
+    @State private var toolsServer: ServerConfiguration?
 
     var body: some View {
         rootView
@@ -45,6 +46,30 @@ struct RootView: View {
                             process,
                             on: server,
                             signal: signal
+                        )
+                    }
+                )
+            }
+            .sheet(item: $toolsServer) { server in
+                ServerToolsView(
+                    listServices: {
+                        try await viewModel.listSystemServices(for: server)
+                    },
+                    controlService: { service, action in
+                        try await viewModel.controlSystemService(
+                            service,
+                            on: server,
+                            action: action
+                        )
+                    },
+                    listContainers: {
+                        try await viewModel.listContainers(for: server)
+                    },
+                    controlContainer: { container, action in
+                        try await viewModel.controlContainer(
+                            container,
+                            on: server,
+                            action: action
                         )
                     }
                 )
@@ -161,6 +186,9 @@ struct RootView: View {
                     },
                     onOpenProcesses: {
                         processesServer = server
+                    },
+                    onOpenTools: {
+                        toolsServer = server
                     },
                     onEdit: {
                         editorRoute = .edit(server)
