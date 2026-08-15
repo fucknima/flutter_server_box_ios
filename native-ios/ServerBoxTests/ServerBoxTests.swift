@@ -86,4 +86,28 @@ struct ServerBoxTests {
         #expect(loadedServer.isEnabled == server.isEnabled)
         #expect(abs(loadedServer.createdAt.timeIntervalSince(server.createdAt)) < 0.001)
     }
+
+    @Test
+    func sshStatusProtocolParsesFramedSections() throws {
+        let raw = """
+        SrvBoxSep.b64.aG9zdA==
+        SrvBoxData.server-one
+        SrvBoxSep.b64.Y3B1
+        SrvBoxData.31.5%
+        SrvBoxSep.b64.bWVtb3J5
+        SrvBoxData.1.3G / 4.0G
+        SrvBoxSep.b64.ZGlzaw==
+        SrvBoxData.7.1G / 30.0G
+        SrvBoxSep.b64.bmV0d29yaw==
+        SrvBoxData.1.2M / 3.4M
+        """
+
+        let status = try SSHStatusProtocol.parse(raw, fallbackName: "fallback")
+
+        #expect(status.name == "server-one")
+        #expect(status.cpu == "31.5%")
+        #expect(status.memory == "1.3G / 4.0G")
+        #expect(status.disk == "7.1G / 30.0G")
+        #expect(status.network == "1.2M / 3.4M")
+    }
 }

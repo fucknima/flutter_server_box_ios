@@ -20,17 +20,20 @@ final class ServerListViewModel: ObservableObject {
     private let store: ServerStore
     private let api: any MonitorAPIProtocol
     private let credentialStore: SSHCredentialStore
+    private let sshStatusService: SSHStatusService
     private var didLoad = false
     private var refreshGeneration = 0
 
     init(
         store: ServerStore = .live,
         api: any MonitorAPIProtocol = MonitorAPI(),
-        credentialStore: SSHCredentialStore = SSHCredentialStore()
+        credentialStore: SSHCredentialStore = SSHCredentialStore(),
+        sshStatusService: SSHStatusService = .live
     ) {
         self.store = store
         self.api = api
         self.credentialStore = credentialStore
+        self.sshStatusService = sshStatusService
     }
 
     func start() async {
@@ -61,6 +64,9 @@ final class ServerListViewModel: ObservableObject {
             connectionStates = Dictionary(
                 uniqueKeysWithValues: servers.map { ($0.id, .disconnected) }
             )
+            for server in servers where server.autoConnect {
+                await connect(server)
+            }
             await refreshAll()
         } catch {
             storageError = error.localizedDescription
@@ -83,7 +89,23 @@ final class ServerListViewModel: ObservableObject {
             guard !Task.isCancelled, generation == refreshGeneration else { return }
 
             guard let statusURL = server.statusURL else {
-                states[server.id] = .idle
+                guard connectionState(for: server) == .connected else {
+                    states[server.id] = .idle
+                    continue
+                }
+
+                states[server.id] = .loading
+
+                do {
+                    let status = try await sshStatusService.fetchStatus(for: server)
+                    guard generation == refreshGeneration else { return }
+                    states[server.id] = .loaded(status)
+                } catch is CancellationError {
+                    return
+                } catch {
+                    guard generation == refreshGeneration else { return }
+                    states[server.id] = .failed(error.localizedDescription)
+                }
                 continue
             }
 
@@ -205,6 +227,15 @@ final class ServerListViewModel: ObservableObject {
         } catch {
             connectionStates[server.id] = .failed(error.localizedDescription)
         }
+    }
+
+    func connectAndRefresh(
+        _ server: ServerConfiguration,
+        allowUnverifiedHostKey: Bool = false
+    ) async {
+        await connect(server, allowUnverifiedHostKey: allowUnverifiedHostKey)
+        guard connectionState(for: server) == .connected else { return }
+        await refreshAll()
     }
 
     func disconnect(_ server: ServerConfiguration) async {

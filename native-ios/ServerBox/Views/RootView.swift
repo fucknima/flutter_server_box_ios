@@ -47,7 +47,7 @@ struct RootView: View {
                 Button("Trust and connect") {
                     if let serverToTrust {
                         Task {
-                            await viewModel.connect(
+                            await viewModel.connectAndRefresh(
                                 serverToTrust,
                                 allowUnverifiedHostKey: true
                             )
@@ -113,7 +113,7 @@ struct RootView: View {
                         Task { await viewModel.refreshAll() }
                     },
                     onConnect: {
-                        Task { await viewModel.connect(server) }
+                        Task { await viewModel.connectAndRefresh(server) }
                     },
                     onTrustAndConnect: {
                         serverToTrust = server
