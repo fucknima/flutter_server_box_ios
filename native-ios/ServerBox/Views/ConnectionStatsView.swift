@@ -6,6 +6,7 @@ struct ConnectionStatsView: View {
     @State private var selectedServer: ServerConnectionStats?
     @State private var isShowingClearConfirmation = false
 
+    @MainActor
     init(viewModel: ConnectionStatsViewModel = ConnectionStatsViewModel()) {
         _viewModel = StateObject(wrappedValue: viewModel)
     }
