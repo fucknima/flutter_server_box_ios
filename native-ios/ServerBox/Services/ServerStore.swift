@@ -29,6 +29,10 @@ actor ServerStore {
             let decoder = JSONDecoder()
             decoder.dateDecodingStrategy = .custom { decoder in
                 let container = try decoder.singleValueContainer()
+                if let seconds = try? container.decode(Double.self) {
+                    return Date(timeIntervalSince1970: seconds)
+                }
+
                 let value = try container.decode(String.self)
 
                 let fractionalFormatter = ISO8601DateFormatter()
@@ -62,10 +66,8 @@ actor ServerStore {
 
         let encoder = JSONEncoder()
         encoder.dateEncodingStrategy = .custom { date, encoder in
-            let formatter = ISO8601DateFormatter()
-            formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
             var container = encoder.singleValueContainer()
-            try container.encode(formatter.string(from: date))
+            try container.encode(date.timeIntervalSince1970)
         }
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
 
