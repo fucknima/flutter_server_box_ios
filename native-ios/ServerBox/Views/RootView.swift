@@ -7,76 +7,15 @@ struct RootView: View {
     @State private var serverToDelete: MonitorServer?
 
     var body: some View {
-        NavigationStack {
-            ScrollView {
-                LazyVStack(alignment: .leading, spacing: DesignTokens.spaceM) {
-                    dashboardHeader
+        rootView
+    }
 
-                    if viewModel.servers.isEmpty {
-                        EmptyStateView {
-                            editorRoute = .add
-                        }
-                    } else {
-                        ForEach(viewModel.servers) { server in
-                            ServerCardView(
-                                server: server,
-                                state: viewModel.state(for: server),
-                                onRefresh: {
-                                    Task { await viewModel.refreshAll() }
-                                },
-                                onEdit: {
-                                    editorRoute = .edit(server)
-                                },
-                                onDelete: {
-                                    serverToDelete = server
-                                }
-                            )
-                        }
-                    }
-                }
-                .padding(.horizontal, DesignTokens.spaceM)
-                .padding(.vertical, DesignTokens.spaceL)
-            }
-            .background(DesignTokens.background.ignoresSafeArea())
-            .refreshable {
-                await viewModel.refreshAll()
-            }
+    private var rootView: some View {
+        NavigationStack {
+            dashboard
             .navigationTitle("Servers")
-            .toolbar {
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        editorRoute = .add
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("Add server")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        Task { await viewModel.refreshAll() }
-                    } label: {
-                        if viewModel.isRefreshing {
-                            ProgressView()
-                        } else {
-                            Image(systemName: "arrow.clockwise")
-                        }
-                    }
-                    .disabled(viewModel.servers.isEmpty || viewModel.isRefreshing)
-                    .accessibilityLabel("Refresh servers")
-                }
-            }
-            .sheet(item: $editorRoute) { route in
-                switch route {
-                case .add:
-                    ServerEditorView { server in
-                        viewModel.upsert(server)
-                    }
-                case .edit(let server):
-                    ServerEditorView(server: server) { updated in
-                        viewModel.upsert(updated)
-                    }
-                }
-            }
+            .toolbar { toolbarContent }
+            .sheet(item: $editorRoute) { route in editorView(for: route) }
             .confirmationDialog(
                 "Delete this server?",
                 item: $serverToDelete
@@ -106,6 +45,85 @@ struct RootView: View {
             }
         }
         .tint(DesignTokens.accent)
+    }
+
+    private var dashboard: some View {
+        ScrollView {
+            LazyVStack(alignment: .leading, spacing: DesignTokens.spaceM) {
+                dashboardHeader
+                serverContent
+            }
+            .padding(.horizontal, DesignTokens.spaceM)
+            .padding(.vertical, DesignTokens.spaceL)
+        }
+        .background(DesignTokens.background.ignoresSafeArea())
+        .refreshable {
+            await viewModel.refreshAll()
+        }
+    }
+
+    @ViewBuilder
+    private var serverContent: some View {
+        if viewModel.servers.isEmpty {
+            EmptyStateView {
+                editorRoute = .add
+            }
+        } else {
+            ForEach(viewModel.servers) { server in
+                ServerCardView(
+                    server: server,
+                    state: viewModel.state(for: server),
+                    onRefresh: {
+                        Task { await viewModel.refreshAll() }
+                    },
+                    onEdit: {
+                        editorRoute = .edit(server)
+                    },
+                    onDelete: {
+                        serverToDelete = server
+                    }
+                )
+            }
+        }
+    }
+
+    @ToolbarContentBuilder
+    private var toolbarContent: some ToolbarContent {
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                editorRoute = .add
+            } label: {
+                Image(systemName: "plus")
+            }
+            .accessibilityLabel("Add server")
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
+                Task { await viewModel.refreshAll() }
+            } label: {
+                if viewModel.isRefreshing {
+                    ProgressView()
+                } else {
+                    Image(systemName: "arrow.clockwise")
+                }
+            }
+            .disabled(viewModel.servers.isEmpty || viewModel.isRefreshing)
+            .accessibilityLabel("Refresh servers")
+        }
+    }
+
+    @ViewBuilder
+    private func editorView(for route: EditorRoute) -> some View {
+        switch route {
+        case .add:
+            ServerEditorView { server in
+                viewModel.upsert(server)
+            }
+        case .edit(let server):
+            ServerEditorView(server: server) { updated in
+                viewModel.upsert(updated)
+            }
+        }
     }
 
     private var dashboardHeader: some View {
