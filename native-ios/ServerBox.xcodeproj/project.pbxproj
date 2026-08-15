@@ -22,12 +22,14 @@
 		A1000000000000000000003C /* KeychainStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000021 /* KeychainStore.swift */; };
 		A1000000000000000000003D /* SSHConnectionService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000022 /* SSHConnectionService.swift */; };
 		A1000000000000000000003E /* SSHStatusService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000023 /* SSHStatusService.swift */; };
+		A10000000000000000000042 /* TerminalView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000024 /* TerminalView.swift */; };
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
 		A1000000000000000000009A /* NIOSSH in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000099 /* NIOSSH */; };
+		A1000000000000000000009D /* NIO in Frameworks */ = {isa = PBXBuildFile; productRef = A1000000000000000000009C /* NIO */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,6 +64,7 @@
 		A10000000000000000000021 /* KeychainStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = KeychainStore.swift; sourceTree = "<group>"; };
 		A10000000000000000000022 /* SSHConnectionService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHConnectionService.swift; sourceTree = "<group>"; };
 		A10000000000000000000023 /* SSHStatusService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHStatusService.swift; sourceTree = "<group>"; };
+		A10000000000000000000024 /* TerminalView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -72,6 +75,7 @@
 				A10000000000000000000094 /* Citadel in Frameworks */,
 				A10000000000000000000097 /* Crypto in Frameworks */,
 				A1000000000000000000009A /* NIOSSH in Frameworks */,
+				A1000000000000000000009D /* NIO in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -162,6 +166,7 @@
 				A10000000000000000000018 /* RootView.swift */,
 				A10000000000000000000019 /* ServerCardView.swift */,
 				A1000000000000000000001A /* ServerEditorView.swift */,
+				A10000000000000000000024 /* TerminalView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -203,6 +208,7 @@
 				A10000000000000000000091 /* Citadel */,
 				A10000000000000000000096 /* Crypto */,
 				A10000000000000000000099 /* NIOSSH */,
+				A1000000000000000000009C /* NIO */,
 			);
 			name = ServerBox;
 			productName = ServerBox;
@@ -259,6 +265,7 @@
 				A10000000000000000000090 /* XCRemoteSwiftPackageReference "Citadel" */,
 				A10000000000000000000095 /* XCRemoteSwiftPackageReference "swift-crypto" */,
 				A10000000000000000000098 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */,
+				A1000000000000000000009B /* XCRemoteSwiftPackageReference "swift-nio" */,
 			);
 			projectDirPath = "";
 			projectRoot = "";
@@ -308,6 +315,7 @@
 				A1000000000000000000003C /* KeychainStore.swift in Sources */,
 				A1000000000000000000003D /* SSHConnectionService.swift in Sources */,
 				A1000000000000000000003E /* SSHStatusService.swift in Sources */,
+				A10000000000000000000042 /* TerminalView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -490,6 +498,14 @@
 				minimumVersion = 0.3.4;
 			};
 		};
+		A1000000000000000000009B /* XCRemoteSwiftPackageReference "swift-nio" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/apple/swift-nio.git";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.81.0;
+			};
+		};
 /* End XCRemoteSwiftPackageReference section */
 
 /* Begin XCSwiftPackageProductDependency section */
@@ -510,6 +526,11 @@
 			isa = XCSwiftPackageProductDependency;
 			package = A10000000000000000000098 /* XCRemoteSwiftPackageReference "swift-nio-ssh" */;
 			productName = NIOSSH;
+		};
+		A1000000000000000000009C /* NIO */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A1000000000000000000009B /* XCRemoteSwiftPackageReference "swift-nio" */;
+			productName = NIO;
 		};
 /* End XCSwiftPackageProductDependency section */
 	};

@@ -1,6 +1,7 @@
 import Citadel
 import Crypto
 import Foundation
+import NIO
 import NIOSSH
 
 enum SSHCredential: Sendable {
@@ -18,6 +19,7 @@ actor SSHConnectionService {
     static let live = SSHConnectionService()
 
     private var clients: [UUID: SSHClient] = [:]
+    private var terminalSessions: [UUID: SSHTerminalSession] = [:]
 
     func connect(
         to server: ServerConfiguration,
@@ -61,6 +63,9 @@ actor SSHConnectionService {
             client = try await client.jump(to: settings)
         }
 
+        if let oldTerminal = terminalSessions.removeValue(forKey: server.id) {
+            await oldTerminal.close()
+        }
         if let oldClient = clients[server.id] {
             try? await oldClient.close()
         }
@@ -84,16 +89,48 @@ actor SSHConnectionService {
     }
 
     func disconnect(serverID: UUID) async {
+        if let terminal = terminalSessions.removeValue(forKey: serverID) {
+            await terminal.close()
+        }
         guard let client = clients.removeValue(forKey: serverID) else { return }
         try? await client.close()
     }
 
     func disconnectAll() async {
         let activeClients = clients.values
+        let activeTerminals = terminalSessions.values
         clients.removeAll()
+        terminalSessions.removeAll()
+        for terminal in activeTerminals {
+            await terminal.close()
+        }
         for client in activeClients {
             try? await client.close()
         }
+    }
+
+    func openTerminal(
+        serverID: UUID,
+        columns: Int = 100,
+        rows: Int = 30
+    ) async throws -> SSHTerminalSession {
+        guard let client = clients[serverID], client.isConnected else {
+            throw SSHTransportError.notConnected
+        }
+
+        if let oldTerminal = terminalSessions.removeValue(forKey: serverID) {
+            await oldTerminal.close()
+        }
+
+        let terminal = SSHTerminalSession()
+        terminalSessions[serverID] = terminal
+        await terminal.start(client: client, columns: columns, rows: rows)
+        return terminal
+    }
+
+    func closeTerminal(serverID: UUID) async {
+        guard let terminal = terminalSessions.removeValue(forKey: serverID) else { return }
+        await terminal.close()
     }
 
     func isConnected(serverID: UUID) -> Bool {
@@ -173,6 +210,7 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
     case notConnected
     case jumpCycle
     case jumpServerMissing
+    case terminalNotOpen
     case hostKeyVerificationRequired
     case unsupportedPrivateKey
 
@@ -184,10 +222,114 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
             return "The jump-host chain contains a cycle."
         case .jumpServerMissing:
             return "A configured jump host could not be found."
+        case .terminalNotOpen:
+            return "The SSH terminal is not open."
         case .hostKeyVerificationRequired:
             return "This server has no trusted host key yet. Confirm its fingerprint before connecting."
         case .unsupportedPrivateKey:
             return "Only RSA and Ed25519 OpenSSH private keys are supported by the current transport."
+        }
+    }
+}
+
+actor SSHTerminalSession {
+    let output: AsyncThrowingStream<String, Error>
+
+    private let continuation: AsyncThrowingStream<String, Error>.Continuation
+    private var writer: TTYStdinWriter?
+    private var task: Task<Void, Never>?
+    private var didFinish = false
+
+    init() {
+        let stream = AsyncThrowingStream<String, Error>.makeStream()
+        output = stream.stream
+        continuation = stream.continuation
+    }
+
+    func start(client: SSHClient, columns: Int, rows: Int) {
+        guard task == nil else { return }
+
+        task = Task {
+            do {
+                let request = SSHChannelRequestEvent.PseudoTerminalRequest(
+                    wantReply: true,
+                    term: "xterm-256color",
+                    terminalCharacterWidth: columns,
+                    terminalRowHeight: rows,
+                    terminalPixelWidth: 0,
+                    terminalPixelHeight: 0,
+                    terminalModes: SSHTerminalModes([:])
+                )
+
+                try await client.withPTY(request) { inbound, outbound in
+                    await self.setWriter(outbound)
+                    do {
+                        for try await event in inbound {
+                            switch event {
+                            case .stdout(let buffer), .stderr(let buffer):
+                                let text = String(
+                                    decoding: buffer.readableBytesView,
+                                    as: UTF8.self
+                                )
+                                if !text.isEmpty {
+                                    await self.emit(text)
+                                }
+                            }
+                        }
+                    } catch {
+                        await self.finish(error)
+                    }
+                    await self.clearWriter()
+                }
+            } catch {
+                await self.finish(error)
+            }
+            await self.finish(nil)
+        }
+    }
+
+    func send(_ input: String) async throws {
+        guard let writer else { throw SSHTransportError.terminalNotOpen }
+        try await writer.write(ByteBuffer(string: input))
+    }
+
+    func resize(columns: Int, rows: Int) async throws {
+        guard let writer else { throw SSHTransportError.terminalNotOpen }
+        try await writer.changeSize(
+            cols: columns,
+            rows: rows,
+            pixelWidth: 0,
+            pixelHeight: 0
+        )
+    }
+
+    func close() {
+        task?.cancel()
+        task = nil
+        finish(nil)
+    }
+
+    private func setWriter(_ writer: TTYStdinWriter) {
+        self.writer = writer
+    }
+
+    private func clearWriter() {
+        writer = nil
+    }
+
+    private func emit(_ text: String) {
+        guard !didFinish else { return }
+        continuation.yield(text)
+    }
+
+    private func finish(_ error: Error?) {
+        guard !didFinish else { return }
+        didFinish = true
+        writer = nil
+        if let error {
+            continuation.finish(throwing: error)
+        } else {
+            continuation.finish()
         }
     }
 }

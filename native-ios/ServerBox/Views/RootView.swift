@@ -6,6 +6,7 @@ struct RootView: View {
     @State private var editorRoute: EditorRoute?
     @State private var serverToDelete: ServerConfiguration?
     @State private var serverToTrust: ServerConfiguration?
+    @State private var terminalServer: ServerConfiguration?
 
     var body: some View {
         rootView
@@ -17,6 +18,11 @@ struct RootView: View {
             .navigationTitle("Servers")
             .toolbar { toolbarContent }
             .sheet(item: $editorRoute) { route in editorView(for: route) }
+            .sheet(item: $terminalServer) { server in
+                TerminalView {
+                    try await viewModel.openTerminal(for: server)
+                }
+            }
             .confirmationDialog(
                 "Delete this server?",
                 isPresented: Binding(
@@ -120,6 +126,9 @@ struct RootView: View {
                     },
                     onDisconnect: {
                         Task { await viewModel.disconnect(server) }
+                    },
+                    onOpenTerminal: {
+                        terminalServer = server
                     },
                     onEdit: {
                         editorRoute = .edit(server)

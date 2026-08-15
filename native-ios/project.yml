@@ -17,6 +17,9 @@ packages:
   NIOSSH:
     url: https://github.com/Wellz26/swift-nio-ssh.git
     from: "0.3.4"
+  SwiftNIO:
+    url: https://github.com/apple/swift-nio.git
+    from: "2.81.0"
 targets:
   ServerBox:
     type: application
@@ -35,6 +38,8 @@ targets:
         product: Crypto
       - package: NIOSSH
         product: NIOSSH
+      - package: SwiftNIO
+        product: NIO
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native

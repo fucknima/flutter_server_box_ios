@@ -247,6 +247,10 @@ final class ServerListViewModel: ObservableObject {
         try await SSHConnectionService.live.execute(command, on: server.id)
     }
 
+    func openTerminal(for server: ServerConfiguration) async throws -> SSHTerminalSession {
+        try await SSHConnectionService.live.openTerminal(serverID: server.id)
+    }
+
     private func makeSSHCredential(_ credential: ServerCredentialInput) -> SSHCredential {
         switch credential {
         case .password(let password):

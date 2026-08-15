@@ -8,6 +8,7 @@ struct ServerCardView: View {
     let onConnect: () -> Void
     let onTrustAndConnect: () -> Void
     let onDisconnect: () -> Void
+    let onOpenTerminal: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
 
@@ -29,6 +30,11 @@ struct ServerCardView: View {
                 Menu {
                     switch connectionState {
                     case .connected:
+                        Button {
+                            onOpenTerminal()
+                        } label: {
+                            Label("Open terminal", systemImage: "terminal")
+                        }
                         Button {
                             onDisconnect()
                         } label: {
