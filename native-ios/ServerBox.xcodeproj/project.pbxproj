@@ -42,6 +42,8 @@
 		A100000000000000000000A5 /* SnippetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B5 /* SnippetsView.swift */; };
 		A100000000000000000000A6 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B6 /* AgentView.swift */; };
 		A100000000000000000000A7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B7 /* SettingsView.swift */; };
+		A100000000000000000000A8 /* ServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B8 /* ServerDetailView.swift */; };
+		A100000000000000000000A9 /* ServerDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B9 /* ServerDiscoveryView.swift */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
@@ -99,6 +101,8 @@
 		A100000000000000000000B5 /* SnippetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetsView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B6 /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B8 /* ServerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDetailView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B9 /* ServerDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDiscoveryView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -217,6 +221,8 @@
 				A100000000000000000000B5 /* SnippetsView.swift */,
 				A100000000000000000000B6 /* AgentView.swift */,
 				A100000000000000000000B7 /* SettingsView.swift */,
+				A100000000000000000000B8 /* ServerDetailView.swift */,
+				A100000000000000000000B9 /* ServerDiscoveryView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -385,6 +391,8 @@
 				A100000000000000000000A5 /* SnippetsView.swift in Sources */,
 				A100000000000000000000A6 /* AgentView.swift in Sources */,
 				A100000000000000000000A7 /* SettingsView.swift in Sources */,
+				A100000000000000000000A8 /* ServerDetailView.swift in Sources */,
+				A100000000000000000000A9 /* ServerDiscoveryView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

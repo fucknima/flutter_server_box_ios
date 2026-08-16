@@ -4,6 +4,7 @@ struct ServerCardView: View {
     let server: ServerConfiguration
     let state: ServerStatusState
     let connectionState: SSHConnectionState
+    let onOpenDetail: () -> Void
     let onRefresh: () -> Void
     let onConnect: () -> Void
     let onTrustAndConnect: () -> Void
@@ -19,9 +20,13 @@ struct ServerCardView: View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceM) {
             HStack(alignment: .top, spacing: DesignTokens.spaceS) {
                 VStack(alignment: .leading, spacing: 4) {
-                    Text(displayName)
-                        .font(.system(.headline, design: .rounded, weight: .semibold))
-                        .lineLimit(1)
+                    Button(action: onOpenDetail) {
+                        Text(displayName)
+                            .font(.system(.headline, design: .rounded, weight: .semibold))
+                            .lineLimit(1)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                    }
+                    .buttonStyle(.plain)
                     Text("\(server.username)@\(server.host):\(server.port)")
                         .font(.system(.caption, design: .monospaced))
                         .foregroundStyle(.secondary)

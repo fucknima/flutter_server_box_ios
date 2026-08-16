@@ -11,6 +11,8 @@ struct RootView: View {
     @State private var sftpServer: ServerConfiguration?
     @State private var processesServer: ServerConfiguration?
     @State private var toolsServer: ServerConfiguration?
+    @State private var detailServer: ServerConfiguration?
+    @State private var showingDiscovery = false
     @State private var showingConnectionStats = false
 
     init(
@@ -83,6 +85,33 @@ struct RootView: View {
                         )
                     }
                 )
+            }
+            .sheet(item: $detailServer) { server in
+                ServerDetailView(
+                    server: server,
+                    state: viewModel.state(for: server),
+                    connectionState: viewModel.connectionState(for: server),
+                    onRefresh: {
+                        Task { await viewModel.refreshAll() }
+                    },
+                    onConnect: {
+                        Task { await viewModel.connectAndRefresh(server) }
+                    },
+                    onDisconnect: {
+                        Task { await viewModel.disconnect(server) }
+                    },
+                    onOpenTerminal: { terminalServer = server },
+                    onOpenSFTP: { sftpServer = server },
+                    onOpenProcesses: { processesServer = server },
+                    onOpenTools: { toolsServer = server },
+                    onEdit: {
+                        detailServer = nil
+                        editorRoute = .edit(server)
+                    }
+                )
+            }
+            .sheet(isPresented: $showingDiscovery) {
+                ServerDiscoveryView(serverViewModel: viewModel)
             }
             .sheet(isPresented: $showingConnectionStats) {
                 ConnectionStatsView(viewModel: ConnectionStatsViewModel())
@@ -179,6 +208,9 @@ struct RootView: View {
                     server: server,
                     state: viewModel.state(for: server),
                     connectionState: viewModel.connectionState(for: server),
+                    onOpenDetail: {
+                        detailServer = server
+                    },
                     onRefresh: {
                         Task { await viewModel.refreshAll() }
                     },
@@ -226,6 +258,14 @@ struct RootView: View {
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
+                showingDiscovery = true
+            } label: {
+                Image(systemName: "dot.radiowaves.left.and.right")
+            }
+            .accessibilityLabel("Discover servers")
+        }
+        ToolbarItem(placement: .topBarTrailing) {
+            Button {
                 showingConnectionStats = true
             } label: {
                 Image(systemName: "chart.bar.xaxis")
@@ -259,11 +299,11 @@ struct RootView: View {
     private func editorView(for route: EditorRoute) -> some View {
         switch route {
         case .add:
-            ServerEditorView { draft in
+            ServerEditorView(availableServers: viewModel.servers) { draft in
                 try await viewModel.save(draft)
             }
         case .edit(let server):
-            ServerEditorView(server: server) { draft in
+            ServerEditorView(server: server, availableServers: viewModel.servers) { draft in
                 try await viewModel.save(draft)
             }
         }

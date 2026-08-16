@@ -11,17 +11,30 @@ struct ServerEditorView: View {
     @State private var passphrase: String
     @State private var statusURLText: String
     @State private var autoConnect: Bool
+    @State private var isEnabled: Bool
+    @State private var tagsText: String
+    @State private var alternateHost: String
+    @State private var alternatePortText: String
+    @State private var alternateUsername: String
+    @State private var proxyCommand: String
+    @State private var selectedJumpServerIDs: Set<UUID>
+    @State private var customCommandsText: String
+    @State private var environmentText: String
+    @State private var customSystem: RemoteSystem
     @State private var validationMessage: String?
     @State private var isSaving = false
 
     private let existingServer: ServerConfiguration?
+    private let availableServers: [ServerConfiguration]
     private let onSave: (ServerEditorDraft) async throws -> Void
 
     init(
         server: ServerConfiguration? = nil,
+        availableServers: [ServerConfiguration] = [],
         onSave: @escaping (ServerEditorDraft) async throws -> Void
     ) {
         existingServer = server
+        self.availableServers = availableServers.filter { $0.id != server?.id }
         self.onSave = onSave
         _name = State(initialValue: server?.name ?? "")
         _host = State(initialValue: server?.host ?? "")
@@ -34,6 +47,16 @@ struct ServerEditorView: View {
         _passphrase = State(initialValue: "")
         _statusURLText = State(initialValue: server?.statusURL?.absoluteString ?? "")
         _autoConnect = State(initialValue: server?.autoConnect ?? true)
+        _isEnabled = State(initialValue: server?.isEnabled ?? true)
+        _tagsText = State(initialValue: server?.tags.joined(separator: ", ") ?? "")
+        _alternateHost = State(initialValue: server?.alternateEndpoint?.host ?? "")
+        _alternatePortText = State(initialValue: server.map { String($0.alternateEndpoint?.port ?? 22) } ?? "22")
+        _alternateUsername = State(initialValue: server?.alternateEndpoint?.username ?? "")
+        _proxyCommand = State(initialValue: server?.proxyCommand ?? "")
+        _selectedJumpServerIDs = State(initialValue: Set(server?.normalizedJumpServerIDs ?? []))
+        _customCommandsText = State(initialValue: Self.jsonText(server?.customCommands ?? [:]))
+        _environmentText = State(initialValue: Self.jsonText(server?.environment ?? [:]))
+        _customSystem = State(initialValue: server?.customSystem ?? .automatic)
     }
 
     var body: some View {
@@ -80,11 +103,85 @@ struct ServerEditorView: View {
 
                 Section {
                     Toggle("Connect automatically", isOn: $autoConnect)
+                    Toggle("Enabled", isOn: $isEnabled)
                     Text("Unknown SSH host keys require an explicit trust action from the server card.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } header: {
                     Text("Connection")
+                }
+
+                Section("Tags") {
+                    TextField("Comma-separated tags", text: $tagsText)
+                }
+
+                Section("Advanced connection") {
+                    Picker("Remote system", selection: $customSystem) {
+                        Text("Automatic").tag(RemoteSystem.automatic)
+                        Text("Unix").tag(RemoteSystem.unix)
+                        Text("Windows").tag(RemoteSystem.windows)
+                    }
+
+                    TextField("Alternate host", text: $alternateHost)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                    TextField("Alternate port", text: $alternatePortText)
+                        .keyboardType(.numberPad)
+                    TextField("Alternate username", text: $alternateUsername)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+
+                    if !availableServers.isEmpty {
+                        DisclosureGroup("Jump hosts") {
+                            ForEach(availableServers) { jumpServer in
+                                Toggle(jumpServer.name, isOn: Binding(
+                                    get: { selectedJumpServerIDs.contains(jumpServer.id) },
+                                    set: { enabled in
+                                        if enabled {
+                                            selectedJumpServerIDs.insert(jumpServer.id)
+                                        } else {
+                                            selectedJumpServerIDs.remove(jumpServer.id)
+                                        }
+                                    }
+                                ))
+                            }
+                        }
+                    }
+
+                    TextField("Proxy command", text: $proxyCommand, axis: .vertical)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
+                } footer: {
+                    Text("Use either jump hosts or a proxy command, not both.")
+                }
+
+                Section("Custom data") {
+                    TextEditor(text: $customCommandsText)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(minHeight: 80)
+                        .overlay(alignment: .topLeading) {
+                            if customCommandsText.isEmpty {
+                                Text("Custom commands JSON")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 8)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                    TextEditor(text: $environmentText)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(minHeight: 80)
+                        .overlay(alignment: .topLeading) {
+                            if environmentText.isEmpty {
+                                Text("Environment JSON")
+                                    .foregroundStyle(.secondary)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 8)
+                                    .allowsHitTesting(false)
+                            }
+                        }
+                } footer: {
+                    Text("Both fields use a JSON object with string keys and values.")
                 }
 
                 if let validationMessage {
@@ -161,6 +258,27 @@ struct ServerEditorView: View {
                 statusURL = try MonitorEndpoint.normalizedURL(from: statusURLText)
             }
 
+            let alternateEndpoint: AlternateEndpoint?
+            let trimmedAlternateHost = alternateHost.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedAlternateHost.isEmpty {
+                alternateEndpoint = nil
+            } else {
+                guard let alternatePort = Int(alternatePortText),
+                      (1...65_535).contains(alternatePort) else {
+                    throw ServerConfigurationError.invalidPort
+                }
+                alternateEndpoint = AlternateEndpoint(
+                    host: trimmedAlternateHost,
+                    port: alternatePort,
+                    username: alternateUsername.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? trimmedUsername
+                        : alternateUsername.trimmingCharacters(in: .whitespacesAndNewlines)
+                )
+            }
+
+            let customCommands = try Self.decodeStringMap(customCommandsText)
+            let environment = try Self.decodeStringMap(environmentText)
+
             let authentication: ServerAuthenticationReference
             switch authenticationMethod {
             case .password:
@@ -183,17 +301,22 @@ struct ServerEditorView: View {
                 port: port,
                 username: trimmedUsername,
                 authentication: authentication,
-                tags: existingServer?.tags ?? [],
-                alternateEndpoint: existingServer?.alternateEndpoint,
+                tags: tagsText
+                    .split(separator: ",")
+                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                    .filter { !$0.isEmpty },
+                alternateEndpoint: alternateEndpoint,
                 autoConnect: autoConnect,
-                jumpServerIDs: existingServer?.jumpServerIDs ?? [],
-                proxyCommand: existingServer?.proxyCommand,
-                customCommands: existingServer?.customCommands ?? [:],
-                environment: existingServer?.environment ?? [:],
-                customSystem: existingServer?.customSystem ?? .automatic,
+                jumpServerIDs: Array(selectedJumpServerIDs),
+                proxyCommand: proxyCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                    ? nil
+                    : proxyCommand.trimmingCharacters(in: .whitespacesAndNewlines),
+                customCommands: customCommands,
+                environment: environment,
+                customSystem: customSystem,
                 disabledStatusTypes: existingServer?.disabledStatusTypes ?? [],
                 statusURL: statusURL,
-                isEnabled: existingServer?.isEnabled ?? true,
+                isEnabled: isEnabled,
                 createdAt: existingServer?.createdAt ?? Date(),
                 knownHostKey: existingServer?.knownHostKey
             )
@@ -240,6 +363,21 @@ struct ServerEditorView: View {
             return .privateKey
         }
     }
+
+    private static func jsonText(_ values: [String: String]) -> String {
+        guard let data = try? JSONEncoder().encode(values) else { return "{}" }
+        return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    private static func decodeStringMap(_ text: String) throws -> [String: String] {
+        let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return [:] }
+        guard let data = trimmed.data(using: .utf8),
+              let values = try? JSONDecoder().decode([String: String].self, from: data) else {
+            throw ServerEditorError.invalidJSONMap
+        }
+        return values
+    }
 }
 
 private enum AuthenticationMethod: String, CaseIterable, Identifiable {
@@ -255,5 +393,13 @@ private enum AuthenticationMethod: String, CaseIterable, Identifiable {
         case .privateKey:
             return "Private key"
         }
+    }
+}
+
+private enum ServerEditorError: LocalizedError {
+    case invalidJSONMap
+
+    var errorDescription: String? {
+        "Custom commands and environment must be valid JSON objects."
     }
 }

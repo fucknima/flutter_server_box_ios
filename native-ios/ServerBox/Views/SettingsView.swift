@@ -38,6 +38,9 @@ struct SettingsView: View {
                     NavigationLink("Connection statistics") {
                         ConnectionStatsView(viewModel: ConnectionStatsViewModel())
                     }
+                    NavigationLink("Server discovery") {
+                        ServerDiscoveryView(serverViewModel: serverViewModel)
+                    }
                     NavigationLink("Private keys") {
                         PrivateKeysView(serverViewModel: serverViewModel)
                     }
@@ -46,7 +49,7 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("Agent") {
+                Section {
                     TextField("API endpoint", text: $agentBaseURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
@@ -55,6 +58,8 @@ struct SettingsView: View {
                     TextField("Model", text: $agentModel)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Agent")
                 } footer: {
                     Text("Use an OpenAI-compatible chat completions endpoint. The API key is stored in Keychain.")
                 }
@@ -128,7 +133,10 @@ private struct PrivateKeysView: View {
         }
         .navigationTitle("Private keys")
         .sheet(item: $editingServer) { server in
-            ServerEditorView(server: server) { draft in
+            ServerEditorView(
+                server: server,
+                availableServers: serverViewModel.servers
+            ) { draft in
                 try await serverViewModel.save(draft)
             }
         }
