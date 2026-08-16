@@ -110,7 +110,9 @@ struct ServerDetailView: View {
             LabeledContent("Host", value: server.host)
             LabeledContent("Port", value: "\(server.port)")
             LabeledContent("Username", value: server.username)
-            LabeledContent("Authentication", value: authenticationTitle)
+            LabeledContent("Authentication") {
+                Text(authenticationTitle)
+            }
             if let statusURL = server.statusURL {
                 LabeledContent("Status monitor", value: statusURL.absoluteString)
             }
