@@ -62,13 +62,13 @@ struct TerminalOutputParser: Sendable {
                 output.removeLast()
             }
         case 0x09, 0x0A:
-            output.append(scalar)
+            output.unicodeScalars.append(scalar)
         case 0x0D, 0x07, 0x7F:
             break
         case 0x00..<0x20:
             break
         default:
-            output.append(scalar)
+            output.unicodeScalars.append(scalar)
         }
     }
 
