@@ -115,7 +115,7 @@ struct ServerEditorView: View {
                     TextField("Comma-separated tags", text: $tagsText)
                 }
 
-                Section("Advanced connection") {
+                Section {
                     Picker("Remote system", selection: $customSystem) {
                         Text("Automatic").tag(RemoteSystem.automatic)
                         Text("Unix").tag(RemoteSystem.unix)
@@ -151,11 +151,13 @@ struct ServerEditorView: View {
                     TextField("Proxy command", text: $proxyCommand, axis: .vertical)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+                } header: {
+                    Text("Advanced connection")
                 } footer: {
                     Text("Use either jump hosts or a proxy command, not both.")
                 }
 
-                Section("Custom data") {
+                Section {
                     TextEditor(text: $customCommandsText)
                         .font(.system(.footnote, design: .monospaced))
                         .frame(minHeight: 80)
@@ -180,6 +182,8 @@ struct ServerEditorView: View {
                                     .allowsHitTesting(false)
                             }
                         }
+                } header: {
+                    Text("Custom data")
                 } footer: {
                     Text("Both fields use a JSON object with string keys and values.")
                 }
