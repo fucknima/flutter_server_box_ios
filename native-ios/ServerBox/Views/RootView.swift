@@ -3,6 +3,7 @@ import SwiftUI
 struct RootView: View {
     @Environment(\.scenePhase) private var scenePhase
     @ObservedObject var viewModel: ServerListViewModel
+    let onSettings: (() -> Void)?
     @State private var editorRoute: EditorRoute?
     @State private var serverToDelete: ServerConfiguration?
     @State private var serverToTrust: ServerConfiguration?
@@ -11,6 +12,14 @@ struct RootView: View {
     @State private var processesServer: ServerConfiguration?
     @State private var toolsServer: ServerConfiguration?
     @State private var showingConnectionStats = false
+
+    init(
+        viewModel: ServerListViewModel,
+        onSettings: (() -> Void)? = nil
+    ) {
+        self.viewModel = viewModel
+        self.onSettings = onSettings
+    }
 
     var body: some View {
         rootView
@@ -207,6 +216,14 @@ struct RootView: View {
 
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
+        if let onSettings {
+            ToolbarItem(placement: .topBarLeading) {
+                Button(action: onSettings) {
+                    Image(systemName: "gearshape")
+                }
+                .accessibilityLabel("Settings")
+            }
+        }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
                 showingConnectionStats = true

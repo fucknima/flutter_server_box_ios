@@ -34,6 +34,14 @@
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
 		A1000000000000000000004B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* Localizable.strings */; };
+		A100000000000000000000A0 /* AppShellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B0 /* AppShellView.swift */; };
+		A100000000000000000000A1 /* LocalFilesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B1 /* LocalFilesView.swift */; };
+		A100000000000000000000A2 /* Snippet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B2 /* Snippet.swift */; };
+		A100000000000000000000A3 /* SnippetStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B3 /* SnippetStore.swift */; };
+		A100000000000000000000A4 /* SnippetListViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B4 /* SnippetListViewModel.swift */; };
+		A100000000000000000000A5 /* SnippetsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B5 /* SnippetsView.swift */; };
+		A100000000000000000000A6 /* AgentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B6 /* AgentView.swift */; };
+		A100000000000000000000A7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B7 /* SettingsView.swift */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
@@ -83,6 +91,14 @@
 		A1000000000000000000002B /* ConnectionStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatsView.swift; sourceTree = "<group>"; };
 		A1000000000000000000002C /* TerminalOutputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalOutputParser.swift; sourceTree = "<group>"; };
 		A1000000000000000000002D /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
+		A100000000000000000000B0 /* AppShellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppShellView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B1 /* LocalFilesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LocalFilesView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B2 /* Snippet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Snippet.swift; sourceTree = "<group>"; };
+		A100000000000000000000B3 /* SnippetStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetStore.swift; sourceTree = "<group>"; };
+		A100000000000000000000B4 /* SnippetListViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetListViewModel.swift; sourceTree = "<group>"; };
+		A100000000000000000000B5 /* SnippetsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SnippetsView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B6 /* AgentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AgentView.swift; sourceTree = "<group>"; };
+		A100000000000000000000B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -147,6 +163,7 @@
 				A10000000000000000000013 /* ServerStatusState.swift */,
 				A10000000000000000000020 /* ServerConfiguration.swift */,
 				A10000000000000000000028 /* ConnectionStats.swift */,
+				A100000000000000000000B2 /* Snippet.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -161,6 +178,7 @@
 				A10000000000000000000023 /* SSHStatusService.swift */,
 				A10000000000000000000029 /* ConnectionStatsStore.swift */,
 				A1000000000000000000002C /* TerminalOutputParser.swift */,
+				A100000000000000000000B3 /* SnippetStore.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -170,6 +188,7 @@
 			children = (
 				A10000000000000000000016 /* ServerListViewModel.swift */,
 				A1000000000000000000002A /* ConnectionStatsViewModel.swift */,
+				A100000000000000000000B4 /* SnippetListViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -193,6 +212,11 @@
 				A10000000000000000000026 /* ProcessesView.swift */,
 				A10000000000000000000027 /* ServerToolsView.swift */,
 				A1000000000000000000002B /* ConnectionStatsView.swift */,
+				A100000000000000000000B0 /* AppShellView.swift */,
+				A100000000000000000000B1 /* LocalFilesView.swift */,
+				A100000000000000000000B5 /* SnippetsView.swift */,
+				A100000000000000000000B6 /* AgentView.swift */,
+				A100000000000000000000B7 /* SettingsView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -353,6 +377,14 @@
 				A10000000000000000000048 /* ConnectionStatsViewModel.swift in Sources */,
 				A10000000000000000000049 /* ConnectionStatsView.swift in Sources */,
 				A1000000000000000000004A /* TerminalOutputParser.swift in Sources */,
+				A100000000000000000000A0 /* AppShellView.swift in Sources */,
+				A100000000000000000000A1 /* LocalFilesView.swift in Sources */,
+				A100000000000000000000A2 /* Snippet.swift in Sources */,
+				A100000000000000000000A3 /* SnippetStore.swift in Sources */,
+				A100000000000000000000A4 /* SnippetListViewModel.swift in Sources */,
+				A100000000000000000000A5 /* SnippetsView.swift in Sources */,
+				A100000000000000000000A6 /* AgentView.swift in Sources */,
+				A100000000000000000000A7 /* SettingsView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

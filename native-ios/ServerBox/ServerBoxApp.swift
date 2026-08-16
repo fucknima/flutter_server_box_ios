@@ -6,7 +6,7 @@ struct ServerBoxApp: App {
 
     var body: some Scene {
         WindowGroup {
-            RootView(viewModel: viewModel)
+            AppShellView(serverViewModel: viewModel)
         }
     }
 }

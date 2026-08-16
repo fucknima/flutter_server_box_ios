@@ -109,6 +109,27 @@ struct SSHCredentialStore: Sendable {
     }
 }
 
+struct AgentCredentialStore: Sendable {
+    private let keychain: KeychainStore
+
+    init(keychain: KeychainStore = KeychainStore()) {
+        self.keychain = keychain
+    }
+
+    func save(apiKey: String) throws {
+        let trimmed = apiKey.trimmingCharacters(in: .whitespacesAndNewlines)
+        if trimmed.isEmpty {
+            try keychain.removeValue(for: "agent-api-key")
+        } else {
+            try keychain.set(trimmed, for: "agent-api-key")
+        }
+    }
+
+    func loadAPIKey() throws -> String? {
+        try keychain.value(for: "agent-api-key")
+    }
+}
+
 private struct StoredCredential: Codable {
     let password: String?
     let privateKey: String?
