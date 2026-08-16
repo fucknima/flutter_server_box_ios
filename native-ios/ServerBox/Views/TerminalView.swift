@@ -16,6 +16,7 @@ final class TerminalViewModel: ObservableObject {
     private let openSession: () async throws -> SSHTerminalSession
     private var session: SSHTerminalSession?
     private var outputTask: Task<Void, Never>?
+    private var outputParser = TerminalOutputParser()
 
     init(openSession: @escaping () async throws -> SSHTerminalSession) {
         self.openSession = openSession
@@ -76,7 +77,10 @@ final class TerminalViewModel: ObservableObject {
     }
 
     private func append(_ chunk: String) {
-        output += chunk
+        let cleanedChunk = outputParser.consume(chunk)
+        guard !cleanedChunk.isEmpty else { return }
+
+        output += cleanedChunk
         if output.count > 80_000 {
             output = String(output.suffix(80_000))
         }
@@ -131,13 +135,19 @@ struct TerminalView: View {
     private var terminalOutput: some View {
         ScrollViewReader { proxy in
             ScrollView {
-                Text(viewModel.output.isEmpty ? "Connecting..." : viewModel.output)
-                    .font(.system(.footnote, design: .monospaced))
-                    .foregroundStyle(.green)
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(DesignTokens.spaceM)
-                    .id("terminal-output")
+                Group {
+                    if viewModel.output.isEmpty {
+                        Text("Connecting...")
+                    } else {
+                        Text(verbatim: viewModel.output)
+                    }
+                }
+                .font(.system(.footnote, design: .monospaced))
+                .foregroundStyle(.green)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .padding(DesignTokens.spaceM)
+                .id("terminal-output")
             }
             .background(Color.black)
             .onChange(of: viewModel.output) { _, _ in
@@ -175,7 +185,7 @@ struct TerminalView: View {
         .background(.regularMaterial)
     }
 
-    private var stateTitle: String {
+    private var stateTitle: LocalizedStringKey {
         switch viewModel.state {
         case .connecting:
             return "Connecting"

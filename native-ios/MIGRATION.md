@@ -1,9 +1,9 @@
 # Flutter to SwiftUI migration
 
-The native target is a replacement implementation, not a visual wrapper
-around Flutter. The Flutter target remains in the repository while each
-feature is moved behind a native boundary and verified before the old path is
-removed.
+The native target is a SwiftUI presentation migration. Flutter remains the
+source of truth for routes and behavior while screens move behind a native UI
+boundary. Existing behavior must be preserved before any old path is removed;
+this is not a license to redesign or drop product features.
 
 ## Target architecture
 
@@ -40,7 +40,8 @@ key identifiers.
 | Docker, process, systemd, PVE | `lib/view/page/container`, `process.dart`, `systemd.dart`, `pve.dart` | Process, systemd, and Docker/Podman tools exist; PVE remains |
 | Snippets and agent | `lib/view/page/snippet`, `agent` | Planned feature modules |
 | Backup and settings | `lib/view/page/backup`, `setting` | Planned native repositories and settings |
-| Widget and Watch | `ios/StatusWidget`, `ios/WatchApp` | Existing Flutter extensions retained until native data sharing is complete |
+| Widget | `ios/StatusWidget` | Existing Flutter extension retained until native data sharing is complete |
+| Watch | `ios/WatchApp` | Explicitly out of scope; do not migrate |
 
 ## Native routes
 

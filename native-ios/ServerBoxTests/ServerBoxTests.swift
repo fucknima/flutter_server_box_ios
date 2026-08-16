@@ -210,4 +210,14 @@ struct ServerBoxTests {
             ) < 0.001
         )
     }
+
+    @Test
+    func terminalOutputParserRemovesControlSequencesAcrossChunks() {
+        var parser = TerminalOutputParser()
+
+        let first = parser.consume("\u{1B}[?2004h\u{1B}[01;32mroot")
+        let second = parser.consume("@server\u{1B}[00m:~# \u{1B}[?2004l\n")
+
+        #expect(first + second == "root@server:~# \n")
+    }
 }

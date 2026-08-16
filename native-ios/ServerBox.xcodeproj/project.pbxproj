@@ -30,8 +30,10 @@
 		A10000000000000000000047 /* ConnectionStatsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A10000000000000000000029 /* ConnectionStatsStore.swift */; };
 		A10000000000000000000048 /* ConnectionStatsViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002A /* ConnectionStatsViewModel.swift */; };
 		A10000000000000000000049 /* ConnectionStatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002B /* ConnectionStatsView.swift */; };
+		A1000000000000000000004A /* TerminalOutputParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002C /* TerminalOutputParser.swift */; };
 		A10000000000000000000040 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001C /* Assets.xcassets */; };
 		A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001D /* PrivacyInfo.xcprivacy */; };
+		A1000000000000000000004B /* Localizable.strings in Resources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000002D /* Localizable.strings */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
@@ -79,6 +81,8 @@
 		A10000000000000000000029 /* ConnectionStatsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatsStore.swift; sourceTree = "<group>"; };
 		A1000000000000000000002A /* ConnectionStatsViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatsViewModel.swift; sourceTree = "<group>"; };
 		A1000000000000000000002B /* ConnectionStatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConnectionStatsView.swift; sourceTree = "<group>"; };
+		A1000000000000000000002C /* TerminalOutputParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TerminalOutputParser.swift; sourceTree = "<group>"; };
+		A1000000000000000000002D /* Localizable.strings */ = {isa = PBXFileReference; lastKnownFileType = text.plist.strings; name = Localizable.strings; path = "zh-Hans.lproj/Localizable.strings"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -156,6 +160,7 @@
 				A10000000000000000000022 /* SSHConnectionService.swift */,
 				A10000000000000000000023 /* SSHStatusService.swift */,
 				A10000000000000000000029 /* ConnectionStatsStore.swift */,
+				A1000000000000000000002C /* TerminalOutputParser.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -198,6 +203,7 @@
 				A1000000000000000000001B /* Info.plist */,
 				A1000000000000000000001C /* Assets.xcassets */,
 				A1000000000000000000001D /* PrivacyInfo.xcprivacy */,
+				A1000000000000000000002D /* Localizable.strings */,
 			);
 			path = Resources;
 			sourceTree = "<group>";
@@ -279,6 +285,7 @@
 			knownRegions = (
 				en,
 				Base,
+				zh-Hans,
 			);
 			mainGroup = A10000000000000000000002;
 			productRefGroup = A10000000000000000000003 /* Products */;
@@ -304,6 +311,7 @@
 			files = (
 				A10000000000000000000040 /* Assets.xcassets in Resources */,
 				A10000000000000000000041 /* PrivacyInfo.xcprivacy in Resources */,
+				A1000000000000000000004B /* Localizable.strings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -344,6 +352,7 @@
 				A10000000000000000000047 /* ConnectionStatsStore.swift in Sources */,
 				A10000000000000000000048 /* ConnectionStatsViewModel.swift in Sources */,
 				A10000000000000000000049 /* ConnectionStatsView.swift in Sources */,
+				A1000000000000000000004A /* TerminalOutputParser.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

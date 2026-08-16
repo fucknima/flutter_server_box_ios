@@ -140,7 +140,7 @@ private struct ConnectionStatsCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stats.serverName)
                         .font(.headline)
-                    Text("\(stats.totalAttempts) connection attempts")
+                    Text("\(stats.totalAttempts) \(String(localized: "connection attempts"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -281,7 +281,7 @@ private struct ConnectionStatRow: View {
 
             VStack(alignment: .leading, spacing: 3) {
                 HStack {
-                    Text(stat.result.displayName)
+                    Text(LocalizedStringKey(stat.result.displayName))
                         .font(.subheadline.weight(.medium))
                     Spacer(minLength: DesignTokens.spaceS)
                     Text("\(stat.durationMilliseconds) ms")

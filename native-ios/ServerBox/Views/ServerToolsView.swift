@@ -232,7 +232,7 @@ private struct ContainersTab: View {
 }
 
 @ViewBuilder
-private func emptyState(title: String, loading: Bool) -> some View {
+private func emptyState(title: LocalizedStringKey, loading: Bool) -> some View {
     if loading {
         ProgressView("Loading...")
     } else {
