@@ -1,14 +1,51 @@
 import Foundation
 import SwiftUI
 
-struct AgentMessage: Identifiable, Equatable, Sendable {
-    let id = UUID()
+struct AgentMessage: Codable, Identifiable, Equatable, Sendable {
+    let id: UUID
     let role: Role
     let content: String
 
-    enum Role: String, Sendable {
+    init(id: UUID = UUID(), role: Role, content: String) {
+        self.id = id
+        self.role = role
+        self.content = content
+    }
+
+    enum Role: String, Codable, Sendable {
         case user
         case assistant
+    }
+}
+
+actor AgentConversationStore {
+    static let live = AgentConversationStore()
+
+    private let fileURL: URL
+
+    init(fileURL: URL? = nil) {
+        if let fileURL {
+            self.fileURL = fileURL
+        } else {
+            let applicationSupport = FileManager.default.urls(
+                for: .applicationSupportDirectory,
+                in: .userDomainMask
+            ).first ?? FileManager.default.temporaryDirectory
+            self.fileURL = applicationSupport
+                .appendingPathComponent("ServerBox", isDirectory: true)
+                .appendingPathComponent("agent-conversation.json")
+        }
+    }
+
+    func load() throws -> [AgentMessage] {
+        guard FileManager.default.fileExists(atPath: fileURL.path) else { return [] }
+        return try JSONDecoder().decode([AgentMessage].self, from: Data(contentsOf: fileURL))
+    }
+
+    func save(_ messages: [AgentMessage]) throws {
+        let directory = fileURL.deletingLastPathComponent()
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        try JSONEncoder().encode(messages).write(to: fileURL, options: .atomic)
     }
 }
 
@@ -26,8 +63,20 @@ struct AgentService: Sendable {
         guard !configuration.apiKey.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
             throw AgentError.missingAPIKey
         }
-        guard let baseURL = URL(string: configuration.baseURL),
-              let url = URL(string: "chat/completions", relativeTo: baseURL) else {
+        let rawBaseURL = configuration.baseURL.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard let rawURL = URL(string: rawBaseURL),
+              (rawURL.scheme == "http" || rawURL.scheme == "https") else {
+            throw AgentError.invalidEndpoint
+        }
+        let path = rawURL.path.trimmingCharacters(in: CharacterSet(charactersIn: "/"))
+        let normalizedBaseURL = rawBaseURL.hasSuffix("/")
+            ? rawBaseURL
+            : rawBaseURL + "/"
+        guard let baseURL = URL(string: normalizedBaseURL),
+              (baseURL.scheme == "http" || baseURL.scheme == "https"),
+              let url = path.hasSuffix("chat/completions")
+                  ? rawURL
+                  : URL(string: "chat/completions", relativeTo: baseURL) else {
             throw AgentError.invalidEndpoint
         }
 
@@ -99,24 +148,68 @@ final class AgentViewModel: ObservableObject {
     @Published var errorMessage: String?
 
     private let service: AgentService
+    private let store: AgentConversationStore
+    private var loadTask: Task<Void, Never>?
+    private var loadGeneration = 0
+    private var isLoaded = false
 
-    init(service: AgentService = AgentService()) {
+    init(
+        service: AgentService = AgentService(),
+        store: AgentConversationStore = .live
+    ) {
         self.service = service
+        self.store = store
+    }
+
+    func load() async {
+        guard !isLoaded else { return }
+        if let loadTask {
+            await loadTask.value
+            return
+        }
+        let generation = loadGeneration
+        let task = Task { @MainActor [weak self] in
+            guard let self else { return }
+            var didLoad = false
+            do {
+                let restored = try await self.store.load()
+                guard self.loadGeneration == generation else { return }
+                self.messages = Array(restored.suffix(200))
+                self.errorMessage = nil
+                didLoad = true
+            } catch {
+                guard self.loadGeneration == generation else { return }
+                self.errorMessage = "The Agent conversation could not be restored."
+            }
+            if self.loadGeneration == generation, didLoad {
+                self.isLoaded = true
+            }
+            self.loadTask = nil
+        }
+        loadTask = task
+        await task.value
     }
 
     func send(
         _ prompt: String,
         configuration: AgentConfiguration
     ) async {
+        if !isLoaded {
+            await load()
+        }
         let text = prompt.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !text.isEmpty, !isSending else { return }
-        messages.append(AgentMessage(role: .user, content: text))
         isSending = true
         defer { isSending = false }
+        messages.append(AgentMessage(role: .user, content: text))
+        trimHistory()
+        await persist()
 
         do {
             let response = try await service.send(messages: messages, configuration: configuration)
             messages.append(AgentMessage(role: .assistant, content: response))
+            trimHistory()
+            await persist()
             errorMessage = nil
         } catch {
             errorMessage = error.localizedDescription
@@ -124,7 +217,32 @@ final class AgentViewModel: ObservableObject {
     }
 
     func clear() {
+        loadGeneration += 1
+        loadTask?.cancel()
+        loadTask = nil
+        isLoaded = true
         messages.removeAll()
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            do {
+                try await self.store.save([])
+            } catch {
+                self.errorMessage = "The Agent conversation could not be cleared."
+            }
+        }
+    }
+
+    private func persist() async {
+        do {
+            try await store.save(messages)
+        } catch {
+            errorMessage = "The Agent conversation could not be saved."
+        }
+    }
+
+    private func trimHistory() {
+        guard messages.count > 200 else { return }
+        messages.removeFirst(messages.count - 200)
     }
 }
 
@@ -210,13 +328,20 @@ struct AgentView: View {
             }
             .task {
                 apiKey = (try? AgentCredentialStore().loadAPIKey()) ?? ""
+                await viewModel.load()
             }
         }
         .tint(DesignTokens.accent)
     }
 
     private func send() {
-        let configuration = AgentConfiguration(baseURL: baseURL, apiKey: apiKey, model: model)
+        let currentAPIKey: String
+        do {
+            currentAPIKey = try AgentCredentialStore().loadAPIKey() ?? ""
+        } catch {
+            currentAPIKey = apiKey
+        }
+        let configuration = AgentConfiguration(baseURL: baseURL, apiKey: currentAPIKey, model: model)
         let text = prompt
         prompt = ""
         Task { await viewModel.send(text, configuration: configuration) }

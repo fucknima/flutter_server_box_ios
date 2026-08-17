@@ -32,6 +32,7 @@ enum NativeHomeTab: String, CaseIterable, Identifiable, Hashable {
 
 struct AppShellView: View {
     @ObservedObject var serverViewModel: ServerListViewModel
+    @StateObject private var transferViewModel: SFTPTransferViewModel
     @AppStorage("native.home.tab") private var selectedTabRaw = NativeHomeTab.servers.rawValue
     @AppStorage("native.appearance") private var appearance = "system"
     @AppStorage("native.tab.ssh.enabled") private var sshTabEnabled = true
@@ -39,6 +40,14 @@ struct AppShellView: View {
     @AppStorage("native.tab.snippets.enabled") private var snippetsTabEnabled = true
     @AppStorage("native.tab.agent.enabled") private var agentTabEnabled = true
     @State private var showingSettings = false
+    @State private var requestedLocalFile: URL?
+
+    init(serverViewModel: ServerListViewModel) {
+        self.serverViewModel = serverViewModel
+        _transferViewModel = StateObject(
+            wrappedValue: SFTPTransferViewModel(serverViewModel: serverViewModel)
+        )
+    }
 
     private var selectedTab: Binding<NativeHomeTab> {
         Binding(
@@ -87,7 +96,12 @@ struct AppShellView: View {
         case .servers:
             RootView(
                 viewModel: serverViewModel,
-                onSettings: { showingSettings = true }
+                transferViewModel: transferViewModel,
+                onSettings: { showingSettings = true },
+                onOpenLocalFile: { url in
+                    requestedLocalFile = url
+                    selectedTabRaw = NativeHomeTab.files.rawValue
+                }
             )
         case .ssh:
             SSHTabView(
@@ -95,7 +109,11 @@ struct AppShellView: View {
                 onSettings: { showingSettings = true }
             )
         case .files:
-            LocalFilesView(onSettings: { showingSettings = true })
+            LocalFilesView(
+                onSettings: { showingSettings = true },
+                requestedFileURL: requestedLocalFile,
+                onConsumeRequestedFile: { requestedLocalFile = nil }
+            )
         case .snippets:
             SnippetsView(
                 serverViewModel: serverViewModel,

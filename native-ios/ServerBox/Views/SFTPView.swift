@@ -1,37 +1,82 @@
 import Foundation
 import SwiftUI
+import UniformTypeIdentifiers
 
 @MainActor
 final class SFTPViewModel: ObservableObject {
     @Published private(set) var files: [RemoteFile] = []
     @Published private(set) var path = "/"
     @Published private(set) var isLoading = false
+    @Published private(set) var isMutating = false
     @Published var errorMessage: String?
     @Published var preview: RemoteFilePreview?
 
     private let listDirectory: (String) async throws -> [RemoteFile]
     private let readFile: (String) async throws -> String
+    private let applyMutation: (SFTPRemoteMutation) async throws -> Void
+    private let initialPath: () async throws -> String
+    private var loadGeneration = 0
+    private var previewGeneration = 0
 
     init(
         listDirectory: @escaping (String) async throws -> [RemoteFile],
-        readFile: @escaping (String) async throws -> String
+        readFile: @escaping (String) async throws -> String,
+        applyMutation: @escaping (SFTPRemoteMutation) async throws -> Void,
+        initialPath: @escaping () async throws -> String
     ) {
         self.listDirectory = listDirectory
         self.readFile = readFile
+        self.applyMutation = applyMutation
+        self.initialPath = initialPath
     }
 
     func load(path: String? = nil) async {
         let requestedPath = path ?? self.path
+        loadGeneration += 1
+        let generation = loadGeneration
         isLoading = true
-        defer { isLoading = false }
+        defer {
+            if generation == loadGeneration {
+                isLoading = false
+            }
+        }
 
         do {
-            files = try await listDirectory(requestedPath)
+            let loadedFiles = try await listDirectory(requestedPath)
+            guard generation == loadGeneration else { return }
+            files = loadedFiles
             self.path = requestedPath
             errorMessage = nil
+        } catch is CancellationError {
+            return
         } catch {
+            guard generation == loadGeneration else { return }
             errorMessage = error.localizedDescription
         }
+    }
+
+    func loadInitial() async {
+        loadGeneration += 1
+        let generation = loadGeneration
+        let resolvedPath: String
+        do {
+            resolvedPath = try await initialPath()
+        } catch is CancellationError {
+            return
+        } catch {
+            resolvedPath = "/"
+        }
+        guard generation == loadGeneration else { return }
+        await load(path: resolvedPath)
+    }
+
+    func goTo(path: String) async {
+        let normalized = path.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard normalized.hasPrefix("/"), !normalized.isEmpty else {
+            errorMessage = "The path must start with /."
+            return
+        }
+        await load(path: normalized.replacingOccurrences(of: "/+", with: "/", options: .regularExpression))
     }
 
     func open(_ file: RemoteFile) async {
@@ -40,9 +85,14 @@ final class SFTPViewModel: ObservableObject {
             return
         }
 
+        previewGeneration += 1
+        let generation = previewGeneration
         do {
             let content = try await readFile(file.path)
+            guard generation == previewGeneration else { return }
             preview = RemoteFilePreview(file: file, content: content)
+        } catch is CancellationError {
+            return
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -56,6 +106,42 @@ final class SFTPViewModel: ObservableObject {
             : "/" + components.dropLast().joined(separator: "/")
         await load(path: parent)
     }
+
+    func mutate(_ mutation: SFTPRemoteMutation) async {
+        guard !isMutating else {
+            errorMessage = "Another remote operation is already running."
+            return
+        }
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            try await applyMutation(mutation)
+            await load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func saveFile(_ file: RemoteFilePreview, content: String) async -> Bool {
+        guard !isMutating else {
+            errorMessage = "Another remote operation is already running."
+            return false
+        }
+        isMutating = true
+        defer { isMutating = false }
+
+        do {
+            try await applyMutation(.writeFile(path: file.file.path, content: content))
+            preview = nil
+            return true
+        } catch is CancellationError {
+            return false
+        } catch {
+            errorMessage = error.localizedDescription
+            return false
+        }
+    }
 }
 
 struct RemoteFilePreview: Identifiable {
@@ -65,18 +151,85 @@ struct RemoteFilePreview: Identifiable {
     var id: String { file.id }
 }
 
+private enum SFTPNameOperation {
+    case createDirectory
+    case createFile
+    case rename(RemoteFile)
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .createDirectory: "New folder"
+        case .createFile: "New file"
+        case .rename: "Rename"
+        }
+    }
+
+    var initialName: String {
+        if case .rename(let file) = self {
+            return file.name
+        }
+        return ""
+    }
+}
+
+private struct SFTPNameInput: Identifiable {
+    let id = UUID()
+    let operation: SFTPNameOperation
+}
+
+private enum SFTPFileSortOrder: String, CaseIterable, Identifiable {
+    case name
+    case size
+    case modified
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .name: "Name"
+        case .size: "Size"
+        case .modified: "Modified"
+        }
+    }
+}
+
 struct SFTPView: View {
     @Environment(\.dismiss) private var dismiss
     @StateObject private var viewModel: SFTPViewModel
+    @ObservedObject var transferViewModel: SFTPTransferViewModel
+    let onDownload: (RemoteFile) -> Void
+    let onUpload: (URL, String) -> Void
+    let onShowLocalFile: (URL) -> Void
+    @State private var showingMissions = false
+    @State private var showingFileImporter = false
+    @State private var nameInput: SFTPNameInput?
+    @State private var fileToDelete: RemoteFile?
+    @State private var fileForPermissions: RemoteFile?
+    @State private var searchText = ""
+    @State private var sortOrder: SFTPFileSortOrder = .name
+    @State private var sortAscending = true
+    @State private var showingPathInput = false
 
     init(
         listDirectory: @escaping (String) async throws -> [RemoteFile],
-        readFile: @escaping (String) async throws -> String
+        readFile: @escaping (String) async throws -> String,
+        applyMutation: @escaping (SFTPRemoteMutation) async throws -> Void,
+        initialPath: @escaping () async throws -> String,
+        transferViewModel: SFTPTransferViewModel,
+        onDownload: @escaping (RemoteFile) -> Void,
+        onUpload: @escaping (URL, String) -> Void,
+        onShowLocalFile: @escaping (URL) -> Void
     ) {
+        self.transferViewModel = transferViewModel
+        self.onDownload = onDownload
+        self.onUpload = onUpload
+        self.onShowLocalFile = onShowLocalFile
         _viewModel = StateObject(
             wrappedValue: SFTPViewModel(
                 listDirectory: listDirectory,
-                readFile: readFile
+                readFile: readFile,
+                applyMutation: applyMutation,
+                initialPath: initialPath
             )
         )
     }
@@ -100,14 +253,50 @@ struct SFTPView: View {
                         systemImage: "folder",
                         description: Text("There are no files to display here.")
                     )
+                } else if filteredFiles.isEmpty {
+                    ContentUnavailableView.search(text: searchText)
                 } else {
-                    ForEach(viewModel.files) { file in
-                        Button {
-                            Task { await viewModel.open(file) }
-                        } label: {
-                            fileRow(file)
+                    ForEach(filteredFiles) { file in
+                        HStack(spacing: DesignTokens.spaceS) {
+                            Button {
+                                Task { await viewModel.open(file) }
+                            } label: {
+                                fileRow(file)
+                            }
+                            .buttonStyle(.plain)
+
+                            if !file.isDirectory {
+                                Button {
+                                    onDownload(file)
+                                } label: {
+                                    Image(systemName: "arrow.down.circle")
+                                        .font(.title3)
+                                }
+                                .buttonStyle(.borderless)
+                                .accessibilityLabel("Download \(file.name)")
+                            }
                         }
-                        .buttonStyle(.plain)
+                        .disabled(viewModel.isMutating)
+                        .contextMenu {
+                            Button("Rename", systemImage: "pencil") {
+                                nameInput = SFTPNameInput(operation: .rename(file))
+                            }
+                            .disabled(viewModel.isMutating)
+                            if !file.isDirectory {
+                                Button("Download", systemImage: "arrow.down.circle") {
+                                    onDownload(file)
+                                }
+                                .disabled(viewModel.isMutating)
+                            }
+                            Button("Permissions", systemImage: "lock") {
+                                fileForPermissions = file
+                            }
+                            .disabled(viewModel.isMutating)
+                            Button("Delete", systemImage: "trash", role: .destructive) {
+                                fileToDelete = file
+                            }
+                            .disabled(viewModel.isMutating)
+                        }
                     }
                 }
             }
@@ -116,6 +305,76 @@ struct SFTPView: View {
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
                     Button("Close") { dismiss() }
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        Task { await viewModel.loadInitial() }
+                    } label: {
+                        Image(systemName: "house")
+                    }
+                    .accessibilityLabel("Home directory")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingPathInput = true
+                    } label: {
+                        Image(systemName: "location")
+                    }
+                    .accessibilityLabel("Go to path")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(SFTPFileSortOrder.allCases) { order in
+                            Button {
+                                if sortOrder == order {
+                                    sortAscending.toggle()
+                                } else {
+                                    sortOrder = order
+                                    sortAscending = true
+                                }
+                            } label: {
+                                if sortOrder == order {
+                                    Label(order.title, systemImage: "checkmark")
+                                } else {
+                                    Text(order.title)
+                                }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .accessibilityLabel("Sort files")
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingFileImporter = true
+                    } label: {
+                        Image(systemName: "arrow.up.doc")
+                    }
+                    .accessibilityLabel("Upload file")
+                    .disabled(viewModel.isMutating)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("New folder", systemImage: "folder.badge.plus") {
+                            nameInput = SFTPNameInput(operation: .createDirectory)
+                        }
+                        Button("New file", systemImage: "doc.badge.plus") {
+                            nameInput = SFTPNameInput(operation: .createFile)
+                        }
+                    } label: {
+                        Image(systemName: "plus")
+                    }
+                    .accessibilityLabel("Create remote item")
+                    .disabled(viewModel.isMutating)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button {
+                        showingMissions = true
+                    } label: {
+                        Image(systemName: "arrow.down.circle")
+                    }
+                    .accessibilityLabel("SFTP missions")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -132,8 +391,9 @@ struct SFTPView: View {
                 }
             }
             .task {
-                await viewModel.load(path: "/")
+                await viewModel.loadInitial()
             }
+            .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
             .alert(
                 "SFTP error",
                 isPresented: Binding(
@@ -148,7 +408,80 @@ struct SFTPView: View {
                 Text(viewModel.errorMessage ?? "Unknown SFTP error")
             }
             .sheet(item: $viewModel.preview) { preview in
-                RemoteFilePreviewView(preview: preview)
+                RemoteFilePreviewView(preview: preview) { content in
+                    await viewModel.saveFile(preview, content: content)
+                }
+            }
+            .sheet(item: $fileForPermissions) { file in
+                SFTPPermissionsInputView(file: file) { permissions in
+                    fileForPermissions = nil
+                    Task {
+                        await viewModel.mutate(
+                            .chmod(path: file.path, permissions: permissions)
+                        )
+                    }
+                }
+            }
+            .sheet(isPresented: $showingMissions) {
+                SFTPMissionsView(
+                    viewModel: transferViewModel,
+                    onShowInFiles: onShowLocalFile
+                )
+            }
+            .fileImporter(
+                isPresented: $showingFileImporter,
+                allowedContentTypes: [.data],
+                allowsMultipleSelection: false
+            ) { result in
+                if case .success(let urls) = result, let url = urls.first {
+                    onUpload(url, viewModel.path)
+                }
+            }
+            .sheet(item: $nameInput) { input in
+                SFTPNameInputView(input: input) { name in
+                    nameInput = nil
+                    guard let mutation = makeMutation(input.operation, name: name) else {
+                        viewModel.errorMessage = "A name without slashes is required."
+                        return
+                    }
+                    Task { await viewModel.mutate(mutation) }
+                }
+            }
+            .sheet(isPresented: $showingPathInput) {
+                SFTPPathInputView(path: viewModel.path) { path in
+                    showingPathInput = false
+                    Task { await viewModel.goTo(path: path) }
+                }
+            }
+            .confirmationDialog(
+                "Delete remote item?",
+                isPresented: Binding(
+                    get: { fileToDelete != nil },
+                    set: { isPresented in
+                        if !isPresented { fileToDelete = nil }
+                    }
+                )
+            ) {
+                Button("Delete", role: .destructive) {
+                    guard let file = fileToDelete else { return }
+                    fileToDelete = nil
+                    Task {
+                        await viewModel.mutate(
+                            .remove(
+                                path: file.path,
+                                isDirectory: file.isDirectory,
+                                recursive: file.isDirectory
+                            )
+                        )
+                    }
+                }
+                Button("Cancel", role: .cancel) {
+                    fileToDelete = nil
+                }
+            } message: {
+                Text(fileToDelete?.isDirectory == true
+                    ? "This directory and all of its contents will be deleted."
+                    : "This remote file will be deleted.")
             }
         }
         .tint(DesignTokens.accent)
@@ -169,6 +502,9 @@ struct SFTPView: View {
                     if let modifiedAt = file.modifiedAt {
                         Text(modifiedAt, style: .date)
                     }
+                    if let permissions = file.permissions {
+                        Text(permissionText(permissions))
+                    }
                 }
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -182,27 +518,245 @@ struct SFTPView: View {
         }
         .contentShape(Rectangle())
     }
+
+    private var filteredFiles: [RemoteFile] {
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
+        let matching = query.isEmpty
+            ? viewModel.files
+            : viewModel.files.filter { $0.name.localizedCaseInsensitiveContains(query) }
+        let sorted = matching.sorted { lhs, rhs in
+            if lhs.isDirectory != rhs.isDirectory {
+                return lhs.isDirectory
+            }
+            let result: ComparisonResult
+            switch sortOrder {
+            case .name:
+                result = lhs.name.localizedStandardCompare(rhs.name)
+            case .size:
+                result = compare(lhs.size ?? 0, rhs.size ?? 0)
+            case .modified:
+                result = compare(lhs.modifiedAt ?? .distantPast, rhs.modifiedAt ?? .distantPast)
+            }
+            return sortAscending
+                ? result == .orderedAscending
+                : result == .orderedDescending
+        }
+        return sorted
+    }
+
+    private func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> ComparisonResult {
+        if lhs == rhs { return .orderedSame }
+        return lhs < rhs ? .orderedAscending : .orderedDescending
+    }
+
+    private func permissionText(_ permissions: UInt32) -> String {
+        let value = String(permissions & 0o7777, radix: 8)
+        return String(repeating: "0", count: max(0, 4 - value.count)) + value
+    }
+
+    private func makeMutation(
+        _ operation: SFTPNameOperation,
+        name: String
+    ) -> SFTPRemoteMutation? {
+        let name = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !name.isEmpty, !name.contains("/"), name != ".", name != ".." else {
+            return nil
+        }
+        let path = viewModel.path == "/"
+            ? "/\(name)"
+            : "\(viewModel.path)/\(name)"
+
+        switch operation {
+        case .createDirectory:
+            return .createDirectory(path: path)
+        case .createFile:
+            return .createFile(path: path)
+        case .rename(let file):
+            return .rename(oldPath: file.path, newPath: path)
+        }
+    }
+}
+
+private struct SFTPNameInputView: View {
+    @Environment(\.dismiss) private var dismiss
+    let input: SFTPNameInput
+    let onSubmit: (String) -> Void
+    @State private var name: String
+
+    init(input: SFTPNameInput, onSubmit: @escaping (String) -> Void) {
+        self.input = input
+        self.onSubmit = onSubmit
+        _name = State(initialValue: input.operation.initialName)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Name", text: $name)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .navigationTitle(input.operation.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        onSubmit(name)
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+private struct SFTPPathInputView: View {
+    @Environment(\.dismiss) private var dismiss
+    let path: String
+    let onSubmit: (String) -> Void
+    @State private var value: String
+
+    init(path: String, onSubmit: @escaping (String) -> Void) {
+        self.path = path
+        self.onSubmit = onSubmit
+        _value = State(initialValue: path)
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Path", text: $value)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .navigationTitle("Go to path")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Go") {
+                        onSubmit(value)
+                        dismiss()
+                    }
+                    .disabled(value.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
+private struct SFTPPermissionsInputView: View {
+    @Environment(\.dismiss) private var dismiss
+    let file: RemoteFile
+    let onSubmit: (UInt32) -> Void
+    @State private var value: String
+    @State private var errorMessage: String?
+
+    init(file: RemoteFile, onSubmit: @escaping (UInt32) -> Void) {
+        self.file = file
+        self.onSubmit = onSubmit
+        let permissions = file.permissions.map { String($0 & 0o7777, radix: 8) } ?? "644"
+        _value = State(
+            initialValue: String(repeating: "0", count: max(0, 4 - permissions.count)) + permissions
+        )
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Octal permissions", text: $value)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+                Text("Use values such as 0644 or 0755.")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .navigationTitle("Permissions")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { submit() }
+                }
+            }
+            .alert(
+                "Invalid permissions",
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "Enter an octal permission value.")
+            }
+        }
+    }
+
+    private func submit() {
+        let normalized = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !normalized.isEmpty,
+              normalized.allSatisfy({ "01234567".contains($0) }),
+              let permissions = UInt32(normalized, radix: 8),
+              permissions <= 0o7777 else {
+            errorMessage = "Enter an octal value between 0000 and 7777."
+            return
+        }
+        onSubmit(permissions)
+        dismiss()
+    }
 }
 
 private struct RemoteFilePreviewView: View {
     @Environment(\.dismiss) private var dismiss
     let preview: RemoteFilePreview
+    let onSave: (String) async -> Bool
+    @State private var content: String
+    @State private var isSaving = false
+
+    init(preview: RemoteFilePreview, onSave: @escaping (String) async -> Bool) {
+        self.preview = preview
+        self.onSave = onSave
+        _content = State(initialValue: preview.content)
+    }
 
     var body: some View {
         NavigationStack {
-            ScrollView {
-                Text(preview.content)
-                    .font(.system(.footnote, design: .monospaced))
-                    .textSelection(.enabled)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(DesignTokens.spaceM)
-            }
+            TextEditor(text: $content)
+                .font(.system(.footnote, design: .monospaced))
+                .textInputAutocapitalization(.never)
+                .autocorrectionDisabled()
+                .padding(DesignTokens.spaceS)
             .navigationTitle(preview.file.name)
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Close") { dismiss() }
+                        .disabled(isSaving)
                 }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") {
+                        Task {
+                            isSaving = true
+                            if await onSave(content) {
+                                dismiss()
+                            }
+                            isSaving = false
+                        }
+                    }
+                    .disabled(isSaving)
+                }
+            }
+            .overlay {
+                if isSaving { ProgressView() }
             }
         }
     }

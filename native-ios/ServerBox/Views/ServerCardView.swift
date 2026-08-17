@@ -70,11 +70,14 @@ struct ServerCardView: View {
                             Label("Connect", systemImage: "rectangle.portrait.and.arrow.right")
                         }
 
-                        if server.knownHostKey == nil {
+                        if canTrustHost {
                             Button {
                                 onTrustAndConnect()
                             } label: {
-                                Label("Trust and connect", systemImage: "checkmark.shield")
+                                Label(
+                                    server.knownHostKey == nil ? "Trust and connect" : "Replace host key",
+                                    systemImage: "checkmark.shield"
+                                )
                             }
                         }
                     }
@@ -129,6 +132,11 @@ struct ServerCardView: View {
                 ProgressView()
             }
         }
+    }
+
+    private var canTrustHost: Bool {
+        guard case .failed(let message) = connectionState else { return false }
+        return message.contains("Fingerprint:") && !message.hasPrefix("Jump host ")
     }
 
     @ViewBuilder

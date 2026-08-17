@@ -79,6 +79,21 @@ final class LocalFilesViewModel: ObservableObject {
         }
     }
 
+    func openFile(at url: URL) {
+        do {
+            let values = try url.resourceValues(forKeys: [.isDirectoryKey, .fileSizeKey, .contentModificationDateKey])
+            let entry = LocalFileEntry(
+                url: url,
+                isDirectory: values.isDirectory == true,
+                size: Int64(values.fileSize ?? 0),
+                modifiedAt: values.contentModificationDate
+            )
+            open(entry)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func goUp() {
         let root = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
         guard directory.path != root.path else { return }
@@ -95,14 +110,60 @@ final class LocalFilesViewModel: ObservableObject {
         }
     }
 
-    func rename(_ entry: LocalFileEntry, to name: String) {
+    func createItem(named name: String, directory: Bool) {
         let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        guard !trimmedName.isEmpty else { return }
+        guard !trimmedName.isEmpty,
+              !trimmedName.contains("/"),
+              trimmedName != ".",
+              trimmedName != ".." else {
+            errorMessage = LocalFileError.invalidName.localizedDescription
+            return
+        }
 
         do {
+            let root = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .resolvingSymlinksInPath()
+            let safeDirectory = self.directory.resolvingSymlinksInPath()
+            guard safeDirectory.path == root.path || safeDirectory.path.hasPrefix(root.path + "/") else {
+                throw LocalFileError.invalidName
+            }
+            let destination = safeDirectory.appendingPathComponent(trimmedName).standardizedFileURL
+            if directory {
+                try fileManager.createDirectory(at: destination, withIntermediateDirectories: false)
+            } else {
+                guard fileManager.createFile(atPath: destination.path, contents: Data()) else {
+                    throw LocalFileError.createFailed
+                }
+            }
+            load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func rename(_ entry: LocalFileEntry, to name: String) {
+        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmedName.isEmpty,
+              !trimmedName.contains("/"),
+              trimmedName != ".",
+              trimmedName != ".." else {
+            errorMessage = LocalFileError.invalidName.localizedDescription
+            return
+        }
+
+        do {
+            let root = fileManager.urls(for: .documentDirectory, in: .userDomainMask)[0]
+                .resolvingSymlinksInPath()
+            let parent = entry.url
+                .deletingLastPathComponent()
+                .resolvingSymlinksInPath()
+            guard parent.path == root.path || parent.path.hasPrefix(root.path + "/") else {
+                throw LocalFileError.invalidName
+            }
+            let destination = parent.appendingPathComponent(trimmedName).standardizedFileURL
             try fileManager.moveItem(
                 at: entry.url,
-                to: entry.url.deletingLastPathComponent().appendingPathComponent(trimmedName)
+                to: destination
             )
             load()
         } catch {
@@ -131,9 +192,22 @@ final class LocalFilesViewModel: ObservableObject {
 
 struct LocalFilesView: View {
     let onSettings: () -> Void
+    let requestedFileURL: URL?
+    let onConsumeRequestedFile: () -> Void
     @StateObject private var viewModel = LocalFilesViewModel()
     @State private var fileToRename: LocalFileEntry?
+    @State private var createKind: LocalCreateKind?
     @State private var showingImporter = false
+
+    init(
+        onSettings: @escaping () -> Void,
+        requestedFileURL: URL? = nil,
+        onConsumeRequestedFile: @escaping () -> Void = {}
+    ) {
+        self.onSettings = onSettings
+        self.requestedFileURL = requestedFileURL
+        self.onConsumeRequestedFile = onConsumeRequestedFile
+    }
 
     var body: some View {
         NavigationStack {
@@ -183,12 +257,21 @@ struct LocalFilesView: View {
                     .accessibilityLabel("Settings")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
-                    Button {
-                        showingImporter = true
+                    Menu {
+                        Button("New folder", systemImage: "folder.badge.plus") {
+                            createKind = .folder
+                        }
+                        Button("New file", systemImage: "doc.badge.plus") {
+                            createKind = .file
+                        }
+                        Divider()
+                        Button("Import file", systemImage: "square.and.arrow.down") {
+                            showingImporter = true
+                        }
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Import file")
+                    .accessibilityLabel("Create or import file")
 
                     Button {
                         viewModel.load()
@@ -205,6 +288,11 @@ struct LocalFilesView: View {
             }
             .refreshable { viewModel.load() }
             .task { viewModel.load() }
+            .onChange(of: requestedFileURL, initial: true) { _, url in
+                guard let url else { return }
+                viewModel.openFile(at: url)
+                onConsumeRequestedFile()
+            }
             .fileImporter(
                 isPresented: $showingImporter,
                 allowedContentTypes: [.item],
@@ -220,6 +308,11 @@ struct LocalFilesView: View {
             .sheet(item: $fileToRename) { entry in
                 RenameLocalFileView(entry: entry) { name in
                     viewModel.rename(entry, to: name)
+                }
+            }
+            .sheet(item: $createKind) { kind in
+                LocalCreateItemView(kind: kind) { name in
+                    viewModel.createItem(named: name, directory: kind == .folder)
                 }
             }
             .alert(
@@ -301,6 +394,45 @@ private struct RenameLocalFileView: View {
     }
 }
 
+private enum LocalCreateKind: String, Identifiable {
+    case folder
+    case file
+
+    var id: String { rawValue }
+    var title: LocalizedStringKey { self == .folder ? "New folder" : "New file" }
+}
+
+private struct LocalCreateItemView: View {
+    @Environment(\.dismiss) private var dismiss
+    let kind: LocalCreateKind
+    let onCreate: (String) -> Void
+    @State private var name = ""
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                TextField("Name", text: $name)
+                    .textInputAutocapitalization(.never)
+                    .autocorrectionDisabled()
+            }
+            .navigationTitle(kind.title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Create") {
+                        onCreate(name)
+                        dismiss()
+                    }
+                    .disabled(name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
+                }
+            }
+        }
+    }
+}
+
 private struct LocalTextEditorView: View {
     @Environment(\.dismiss) private var dismiss
     let file: LocalFileEntry
@@ -373,11 +505,17 @@ private struct LocalTextEditorView: View {
 
 private enum LocalFileError: LocalizedError {
     case fileTooLarge
+    case invalidName
+    case createFailed
 
     var errorDescription: String? {
         switch self {
         case .fileTooLarge:
             "This file is too large to edit on the device."
+        case .invalidName:
+            "Use a file name without path separators or parent-directory components."
+        case .createFailed:
+            "The local file could not be created."
         }
     }
 }

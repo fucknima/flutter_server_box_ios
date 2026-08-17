@@ -12,6 +12,9 @@ struct ServerDetailView: View {
     let onOpenSFTP: () -> Void
     let onOpenProcesses: () -> Void
     let onOpenTools: () -> Void
+    let onOpenPVE: () -> Void
+    let onOpenIperf: () -> Void
+    let onOpenPortForward: () -> Void
     let onEdit: () -> Void
 
     var body: some View {
@@ -122,6 +125,7 @@ struct ServerDetailView: View {
             if let proxyCommand = server.proxyCommand, !proxyCommand.isEmpty {
                 LabeledContent("Proxy command", value: proxyCommand)
             }
+            LabeledContent("Proxmox tools", value: server.pveEnabled ? "Enabled" : "Disabled")
         }
         .padding(DesignTokens.spaceM)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -164,12 +168,29 @@ struct ServerDetailView: View {
         .clipShape(.rect(cornerRadius: DesignTokens.radiusM))
 
         if connectionState == .connected {
-            HStack(spacing: DesignTokens.spaceS) {
-                Button("Processes", action: onOpenProcesses)
-                Button("Server tools", action: onOpenTools)
+            ViewThatFits(in: .horizontal) {
+                HStack(spacing: DesignTokens.spaceS) {
+                    detailToolButtons
+                }
+                ScrollView(.horizontal, showsIndicators: false) {
+                    HStack(spacing: DesignTokens.spaceS) {
+                        detailToolButtons
+                    }
+                }
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    @ViewBuilder
+    private var detailToolButtons: some View {
+        Button("Processes", action: onOpenProcesses)
+        Button("Server tools", action: onOpenTools)
+        if server.pveEnabled {
+            Button("PVE", action: onOpenPVE)
+        }
+        Button("iperf", action: onOpenIperf)
+        Button("Port forwarding", action: onOpenPortForward)
     }
 
     private func statusMetrics(_ status: ServerStatus) -> some View {

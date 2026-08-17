@@ -42,7 +42,7 @@ struct SettingsView: View {
                         ServerDiscoveryView(serverViewModel: serverViewModel)
                     }
                     NavigationLink("Private keys") {
-                        PrivateKeysView(serverViewModel: serverViewModel)
+                        PrivateKeysView()
                     }
                     NavigationLink("Backup") {
                         BackupView(serverViewModel: serverViewModel)
@@ -94,31 +94,34 @@ struct SettingsView: View {
 }
 
 private struct PrivateKeysView: View {
-    @ObservedObject var serverViewModel: ServerListViewModel
-    @State private var editingServer: ServerConfiguration?
+    private let store: PrivateKeyStore
+    @State private var records: [PrivateKeyRecord] = []
+    @State private var editingRecord: PrivateKeyRecord?
+    @State private var showingEditor = false
+    @State private var errorMessage: String?
 
-    private var keyServers: [ServerConfiguration] {
-        serverViewModel.servers.filter {
-            if case .privateKey = $0.authentication { return true }
-            return false
-        }
+    init(store: PrivateKeyStore = .live) {
+        self.store = store
     }
 
     var body: some View {
         List {
-            if keyServers.isEmpty {
+            if records.isEmpty {
                 ContentUnavailableView(
                     "No private keys",
                     systemImage: "key",
-                    description: Text("Private keys are attached to server connections.")
+                    description: Text("Add a private key to reuse it across server connections.")
                 )
             } else {
-                ForEach(keyServers) { server in
-                    Button { editingServer = server } label: {
+                ForEach(records) { record in
+                    Button {
+                        editingRecord = record
+                        showingEditor = true
+                    } label: {
                         Label {
                             VStack(alignment: .leading) {
-                                Text(server.name)
-                                Text("\(server.username)@\(server.host)")
+                                Text(record.name)
+                                Text(record.id)
                                     .font(.caption)
                                     .foregroundStyle(.secondary)
                             }
@@ -128,26 +131,180 @@ private struct PrivateKeysView: View {
                         }
                     }
                     .buttonStyle(.plain)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button("Delete", role: .destructive) {
+                            delete(record)
+                        }
+                    }
                 }
             }
         }
         .navigationTitle("Private keys")
-        .sheet(item: $editingServer) { server in
-            ServerEditorView(
-                server: server,
-                availableServers: serverViewModel.servers
-            ) { draft in
-                try await serverViewModel.save(draft)
+        .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                Button {
+                    editingRecord = nil
+                    showingEditor = true
+                } label: {
+                    Image(systemName: "plus")
+                }
+                .accessibilityLabel("Add private key")
             }
         }
-        .task { await serverViewModel.loadIfNeeded() }
+        .task { load() }
+        .sheet(isPresented: $showingEditor) {
+            PrivateKeyEditorView(record: editingRecord, store: store) {
+                load()
+            }
+        }
+        .alert(
+            "Private key error",
+            isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {}
+        } message: {
+            Text(errorMessage ?? "Unknown private key error")
+        }
+    }
+
+    private func load() {
+        do {
+            records = try store.records()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    private func delete(_ record: PrivateKeyRecord) {
+        do {
+            try store.delete(record)
+            load()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+}
+
+private struct PrivateKeyEditorView: View {
+    @Environment(\.dismiss) private var dismiss
+    let record: PrivateKeyRecord?
+    let store: PrivateKeyStore
+    let onSaved: () -> Void
+    @State private var name: String
+    @State private var key: String
+    @State private var passphrase: String
+    @State private var showingImporter = false
+    @State private var errorMessage: String?
+
+    init(
+        record: PrivateKeyRecord?,
+        store: PrivateKeyStore,
+        onSaved: @escaping () -> Void
+    ) {
+        self.record = record
+        self.store = store
+        self.onSaved = onSaved
+        _name = State(initialValue: record?.name ?? "")
+        let secret = record.flatMap { try? store.secret(for: $0) }
+        _key = State(initialValue: secret?.key ?? "")
+        _passphrase = State(initialValue: secret?.passphrase ?? "")
+    }
+
+    var body: some View {
+        NavigationStack {
+            Form {
+                Section("Private key") {
+                    TextField("Name", text: $name)
+                    TextEditor(text: $key)
+                        .font(.system(.footnote, design: .monospaced))
+                        .frame(minHeight: 180)
+                    SecureField("Passphrase (optional)", text: $passphrase)
+                    Button("Import from file") { showingImporter = true }
+                } footer: {
+                    Text("The key and passphrase are stored in the iOS Keychain.")
+                }
+            }
+            .navigationTitle(record == nil ? "Add private key" : "Edit private key")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Save") { save() }
+                        .disabled(
+                            name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                                || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        )
+                }
+            }
+            .fileImporter(
+                isPresented: $showingImporter,
+                allowedContentTypes: [.data],
+                allowsMultipleSelection: false
+            ) { result in
+                guard case .success(let urls) = result, let url = urls.first else { return }
+                let accessed = url.startAccessingSecurityScopedResource()
+                defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+                do {
+                    let file = try FileHandle(forReadingFrom: url)
+                    defer { try? file.close() }
+                    let data = try file.read(upToCount: 1_048_577) ?? Data()
+                    guard data.count <= 1_048_576 else {
+                        throw PrivateKeyStoreError.invalidSecret
+                    }
+                    guard let content = String(data: data, encoding: .utf8) else {
+                        throw PrivateKeyStoreError.invalidSecret
+                    }
+                    key = content
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+            .alert(
+                "Private key error",
+                isPresented: Binding(
+                    get: { errorMessage != nil },
+                    set: { if !$0 { errorMessage = nil } }
+                )
+            ) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "Unknown private key error")
+            }
+        }
+        .tint(DesignTokens.accent)
+    }
+
+    private func save() {
+        let keyID = record?.id ?? UUID().uuidString
+        let keyRecord = PrivateKeyRecord(
+            id: keyID,
+            name: name.trimmingCharacters(in: .whitespacesAndNewlines),
+            createdAt: record?.createdAt ?? Date()
+        )
+        do {
+            try store.save(
+                record: keyRecord,
+                key: key,
+                passphrase: passphrase.trimmingCharacters(in: .whitespacesAndNewlines)
+            )
+            onSaved()
+            dismiss()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
     }
 }
 
 private struct BackupView: View {
     @ObservedObject var serverViewModel: ServerListViewModel
-    @State private var exportText: String?
+    @State private var exportURL: URL?
     @State private var errorMessage: String?
+    @State private var showingImporter = false
 
     var body: some View {
         Form {
@@ -156,11 +313,12 @@ private struct BackupView: View {
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                 Button("Create backup") { createBackup() }
-                if let exportText {
-                    ShareLink(item: exportText) {
+                if let exportURL {
+                    ShareLink(item: exportURL) {
                         Label("Share backup", systemImage: "square.and.arrow.up")
                     }
                 }
+                Button("Restore backup") { showingImporter = true }
             } header: {
                 Text("Backup")
             }
@@ -171,6 +329,20 @@ private struct BackupView: View {
         }
         .navigationTitle("Backup")
         .task { await serverViewModel.loadIfNeeded() }
+        .fileImporter(
+            isPresented: $showingImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            Task {
+                do {
+                    try await serverViewModel.importBackup(from: url)
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
         .alert(
             "Backup error",
             isPresented: Binding(
@@ -189,10 +361,11 @@ private struct BackupView: View {
             let encoder = JSONEncoder()
             encoder.dateEncodingStrategy = .iso8601
             encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
-            exportText = String(
-                data: try encoder.encode(serverViewModel.servers),
-                encoding: .utf8
-            )
+            let data = try encoder.encode(serverViewModel.servers)
+            let url = FileManager.default.temporaryDirectory
+                .appendingPathComponent("serverbox-backup-\(UUID().uuidString).json")
+            try data.write(to: url, options: .atomic)
+            exportURL = url
         } catch {
             errorMessage = error.localizedDescription
         }

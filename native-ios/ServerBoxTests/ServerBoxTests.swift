@@ -61,6 +61,34 @@ struct ServerBoxTests {
     }
 
     @Test
+    func serverConfigurationRejectsProxyCommandOnIOS() {
+        let configuration = ServerConfiguration(
+            name: "Proxied server",
+            host: "example.com",
+            username: "root",
+            proxyCommand: "socat - PROXY:proxy:22"
+        )
+
+        #expect(throws: ServerConfigurationError.proxyCommandUnsupported) {
+            try configuration.validate()
+        }
+    }
+
+    @Test
+    func normalizedJumpServerIDsPreserveCandidateOrder() {
+        let first = UUID()
+        let second = UUID()
+        let configuration = ServerConfiguration(
+            name: "Jumped server",
+            host: "example.com",
+            username: "root",
+            jumpServerIDs: [second, first, second]
+        )
+
+        #expect(configuration.normalizedJumpServerIDs == [second, first])
+    }
+
+    @Test
     func serverStoreRoundTripsCodableData() async throws {
         let directory = FileManager.default.temporaryDirectory
             .appendingPathComponent("ServerBoxTests-\(UUID().uuidString)", isDirectory: true)
@@ -85,6 +113,16 @@ struct ServerBoxTests {
         #expect(loadedServer.statusURL == server.statusURL)
         #expect(loadedServer.isEnabled == server.isEnabled)
         #expect(abs(loadedServer.createdAt.timeIntervalSince(server.createdAt)) < 0.001)
+    }
+
+    @Test
+    @MainActor
+    func localFilesRejectPathTraversalWhenCreatingItems() {
+        let viewModel = LocalFilesViewModel()
+
+        viewModel.createItem(named: "../escape", directory: false)
+
+        #expect(viewModel.errorMessage != nil)
     }
 
     @Test
@@ -123,6 +161,14 @@ struct ServerBoxTests {
         #expect(processes.first?.pid == 42)
         #expect(processes.first?.command == "bash --login")
         #expect(processes.last?.command == "launchd")
+    }
+
+    @Test
+    func remoteProcessParserParsesTerminationIdentity() {
+        let identity = RemoteProcessParser.parseIdentity("root bash bash --login\n")
+
+        #expect(identity?.user == "root")
+        #expect(identity?.command == "bash --login")
     }
 
     @Test
@@ -219,5 +265,131 @@ struct ServerBoxTests {
         let second = parser.consume("@server\u{1B}[00m:~# \u{1B}[?2004l\n")
 
         #expect(first + second == "root@server:~# \n")
+    }
+
+    @Test
+    func sftpTransferProgressCalculatesFractionAndHandlesUnknownSize() {
+        #expect(
+            SFTPTransferProgress(transferredBytes: 25, totalBytes: 100).fractionCompleted == 0.25
+        )
+        #expect(
+            SFTPTransferProgress(transferredBytes: 8, totalBytes: nil).fractionCompleted == nil
+        )
+        #expect(
+            SFTPTransferProgress(transferredBytes: 0, totalBytes: 0).fractionCompleted == 1
+        )
+    }
+
+    @Test
+    func sftpTransferUsesRemoteFileNameForMissionDisplay() {
+        let transfer = SFTPTransfer(
+            id: UUID(),
+            serverID: UUID(),
+            serverName: "Test server",
+            remotePath: "/var/log/server.log",
+            localURL: FileManager.default.temporaryDirectory.appendingPathComponent("server.log"),
+            direction: .download,
+            createdAt: Date(),
+            totalBytes: 10,
+            transferredBytes: 5,
+            state: .downloading,
+            errorMessage: nil,
+            finishedAt: nil
+        )
+
+        #expect(transfer.fileName == "server.log")
+        #expect(transfer.progress == 0.5)
+    }
+
+    @Test
+    func pveResourcePayloadDecodesAndCalculatesUsage() throws {
+        let resources = try JSONDecoder().decode(
+            [PVEResource].self,
+            from: Data(
+                """
+                [{"id":"qemu/100","type":"qemu","node":"pve","vmid":100,"name":"router","status":"running","cpu":2,"maxcpu":4,"mem":512,"maxmem":1024,"disk":2048,"maxdisk":4096}]
+                """.utf8
+            )
+        )
+        let resource = try #require(resources.first)
+
+        #expect(resource.id == "qemu:pve:qemu/100")
+        #expect(resource.displayName == "router")
+        #expect(resource.isRunning)
+        #expect(resource.memoryFraction == 0.5)
+        #expect(resource.diskFraction == 0.5)
+    }
+
+    @Test
+    func portForwardConfigurationValidatesLocalRemoteAndDynamicModes() throws {
+        let serverID = UUID()
+        let local = PortForwardConfiguration(
+            serverID: serverID,
+            name: "Web",
+            type: .local,
+            localPort: 8080,
+            remoteHost: "127.0.0.1",
+            remotePort: 80
+        )
+        try local.validate()
+        #expect(local.displayAddress == "localhost:8080 -> 127.0.0.1:80")
+
+        let dynamic = PortForwardConfiguration(
+            serverID: serverID,
+            name: "SOCKS",
+            type: .dynamic,
+            localPort: 1080
+        )
+        try dynamic.validate()
+        #expect(dynamic.displayAddress == "localhost:1080 (SOCKS5)")
+
+        let invalid = PortForwardConfiguration(
+            serverID: serverID,
+            name: "Invalid",
+            type: .remote,
+            localPort: 8080
+        )
+        #expect(throws: PortForwardConfigurationError.self) {
+            try invalid.validate()
+        }
+    }
+
+    @Test
+    func portForwardStorePersistsRulesPerServer() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("PortForwardTests-\(UUID().uuidString)", isDirectory: true)
+        let store = PortForwardStore(
+            fileURL: directory.appendingPathComponent("port-forwards.json")
+        )
+        let firstServerID = UUID()
+        let secondServerID = UUID()
+        let configuration = PortForwardConfiguration(
+            serverID: firstServerID,
+            name: "Web",
+            type: .local,
+            localPort: 8080,
+            remoteHost: "localhost",
+            remotePort: 80
+        )
+
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try await store.upsert(configuration)
+        try await store.upsert(
+            PortForwardConfiguration(
+                serverID: secondServerID,
+                name: "Other",
+                type: .dynamic,
+                localPort: 1080
+            )
+        )
+
+        let firstRules = try await store.configurations(for: firstServerID)
+        let secondRules = try await store.configurations(for: secondServerID)
+        #expect(firstRules == [configuration])
+        #expect(secondRules.count == 1)
+
+        try await store.remove(id: configuration.id)
+        let remainingRules = try await store.configurations(for: firstServerID)
+        #expect(remainingRules.isEmpty)
     }
 }

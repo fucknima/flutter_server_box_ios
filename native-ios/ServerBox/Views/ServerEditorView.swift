@@ -9,6 +9,8 @@ struct ServerEditorView: View {
     @State private var authenticationMethod: AuthenticationMethod
     @State private var secret: String
     @State private var passphrase: String
+    @State private var selectedPrivateKeyID: String?
+    @State private var privateKeyRecords: [PrivateKeyRecord]
     @State private var statusURLText: String
     @State private var autoConnect: Bool
     @State private var isEnabled: Bool
@@ -17,16 +19,18 @@ struct ServerEditorView: View {
     @State private var alternatePortText: String
     @State private var alternateUsername: String
     @State private var proxyCommand: String
-    @State private var selectedJumpServerIDs: Set<UUID>
+    @State private var selectedJumpServerIDs: [UUID]
     @State private var customCommandsText: String
     @State private var environmentText: String
     @State private var customSystem: RemoteSystem
+    @State private var pveEnabled: Bool
     @State private var validationMessage: String?
     @State private var isSaving = false
 
     private let existingServer: ServerConfiguration?
     private let availableServers: [ServerConfiguration]
     private let onSave: (ServerEditorDraft) async throws -> Void
+    private let privateKeyStore = PrivateKeyStore.live
 
     init(
         server: ServerConfiguration? = nil,
@@ -36,6 +40,23 @@ struct ServerEditorView: View {
         existingServer = server
         self.availableServers = availableServers.filter { $0.id != server?.id }
         self.onSave = onSave
+        let existingKeyID: String?
+        if let authentication = server?.authentication,
+           case .privateKey(let id) = authentication {
+            existingKeyID = id
+        } else {
+            existingKeyID = nil
+        }
+        let keyStore = PrivateKeyStore.live
+        let savedKeys = (try? keyStore.records()) ?? []
+        let selectedKeyID = existingKeyID.flatMap { id in
+            savedKeys.contains(where: { $0.id == id }) ? id : nil
+        }
+        let savedSecret = selectedKeyID.flatMap { id in
+            savedKeys.first(where: { $0.id == id }).flatMap {
+                try? keyStore.secret(for: $0)
+            }
+        }
         _name = State(initialValue: server?.name ?? "")
         _host = State(initialValue: server?.host ?? "")
         _portText = State(initialValue: String(server?.port ?? 22))
@@ -43,8 +64,10 @@ struct ServerEditorView: View {
         _authenticationMethod = State(
             initialValue: Self.authenticationMethod(for: server?.authentication)
         )
-        _secret = State(initialValue: "")
-        _passphrase = State(initialValue: "")
+        _secret = State(initialValue: savedSecret?.key ?? "")
+        _passphrase = State(initialValue: savedSecret?.passphrase ?? "")
+        _selectedPrivateKeyID = State(initialValue: selectedKeyID)
+        _privateKeyRecords = State(initialValue: savedKeys)
         _statusURLText = State(initialValue: server?.statusURL?.absoluteString ?? "")
         _autoConnect = State(initialValue: server?.autoConnect ?? true)
         _isEnabled = State(initialValue: server?.isEnabled ?? true)
@@ -53,10 +76,11 @@ struct ServerEditorView: View {
         _alternatePortText = State(initialValue: server.map { String($0.alternateEndpoint?.port ?? 22) } ?? "22")
         _alternateUsername = State(initialValue: server?.alternateEndpoint?.username ?? "")
         _proxyCommand = State(initialValue: server?.proxyCommand ?? "")
-        _selectedJumpServerIDs = State(initialValue: Set(server?.normalizedJumpServerIDs ?? []))
+        _selectedJumpServerIDs = State(initialValue: server?.normalizedJumpServerIDs ?? [])
         _customCommandsText = State(initialValue: Self.jsonText(server?.customCommands ?? [:]))
         _environmentText = State(initialValue: Self.jsonText(server?.environment ?? [:]))
         _customSystem = State(initialValue: server?.customSystem ?? .automatic)
+        _pveEnabled = State(initialValue: server?.pveEnabled ?? false)
     }
 
     var body: some View {
@@ -138,12 +162,18 @@ struct ServerEditorView: View {
                                     get: { selectedJumpServerIDs.contains(jumpServer.id) },
                                     set: { enabled in
                                         if enabled {
-                                            selectedJumpServerIDs.insert(jumpServer.id)
+                                            guard selectedJumpServerIDs.count < 2,
+                                                  !selectedJumpServerIDs.contains(jumpServer.id) else { return }
+                                            selectedJumpServerIDs.append(jumpServer.id)
                                         } else {
-                                            selectedJumpServerIDs.remove(jumpServer.id)
+                                            selectedJumpServerIDs.removeAll { $0 == jumpServer.id }
                                         }
                                     }
                                 ))
+                                .disabled(
+                                    !selectedJumpServerIDs.contains(jumpServer.id)
+                                        && selectedJumpServerIDs.count >= 2
+                                )
                             }
                         }
                     }
@@ -154,7 +184,15 @@ struct ServerEditorView: View {
                 } header: {
                     Text("Advanced connection")
                 } footer: {
-                    Text("Use either jump hosts or a proxy command, not both.")
+                    Text("Jump hosts are tried in order. Proxy commands are not supported on iOS.")
+                }
+
+                Section {
+                    Toggle("Enable Proxmox tools", isOn: $pveEnabled)
+                } header: {
+                    Text("Remote tools")
+                } footer: {
+                    Text("Only enable this for a server that exposes the Proxmox pvesh command.")
                 }
 
                 Section {
@@ -207,6 +245,26 @@ struct ServerEditorView: View {
                         .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
+            .onChange(of: selectedPrivateKeyID) { _, keyID in
+                guard let keyID,
+                      let record = privateKeyRecords.first(where: { $0.id == keyID }),
+                      let savedSecret = try? privateKeyStore.secret(for: record) else {
+                    if keyID == nil {
+                        secret = ""
+                        passphrase = ""
+                    }
+                    return
+                }
+                secret = savedSecret.key
+                passphrase = savedSecret.passphrase ?? ""
+            }
+            .onChange(of: authenticationMethod) { _, method in
+                secret = ""
+                passphrase = ""
+                if method == .password {
+                    selectedPrivateKeyID = nil
+                }
+            }
             .overlay {
                 if isSaving {
                     ProgressView()
@@ -227,12 +285,26 @@ struct ServerEditorView: View {
             )
         case .privateKey:
             VStack(alignment: .leading, spacing: 8) {
-                TextEditor(text: $secret)
-                    .frame(minHeight: 130)
-                    .overlay {
-                        RoundedRectangle(cornerRadius: 8)
-                            .strokeBorder(.secondary.opacity(0.25))
+                if !privateKeyRecords.isEmpty {
+                    Picker("Saved private key", selection: $selectedPrivateKeyID) {
+                        Text("Inline private key").tag(nil as String?)
+                        ForEach(privateKeyRecords) { record in
+                            Text(record.name).tag(record.id as String?)
+                        }
                     }
+                }
+                if let selectedPrivateKeyID,
+                   let record = privateKeyRecords.first(where: { $0.id == selectedPrivateKeyID }) {
+                    Label("Using \(record.name)", systemImage: "key.fill")
+                        .foregroundStyle(.secondary)
+                } else {
+                    TextEditor(text: $secret)
+                        .frame(minHeight: 130)
+                        .overlay {
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(.secondary.opacity(0.25))
+                        }
+                }
                 SecureField("Passphrase (optional)", text: $passphrase)
             }
         }
@@ -288,13 +360,7 @@ struct ServerEditorView: View {
             case .password:
                 authentication = .password
             case .privateKey:
-                let keyID: String
-                if let existingAuthentication = existingServer?.authentication,
-                   case .privateKey(let existingKeyID) = existingAuthentication {
-                    keyID = existingKeyID
-                } else {
-                    keyID = UUID().uuidString
-                }
+                let keyID = selectedPrivateKeyID ?? existingPrivateKeyID ?? UUID().uuidString
                 authentication = .privateKey(id: keyID)
             }
 
@@ -311,13 +377,14 @@ struct ServerEditorView: View {
                     .filter { !$0.isEmpty },
                 alternateEndpoint: alternateEndpoint,
                 autoConnect: autoConnect,
-                jumpServerIDs: Array(selectedJumpServerIDs),
+                jumpServerIDs: selectedJumpServerIDs,
                 proxyCommand: proxyCommand.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                     ? nil
                     : proxyCommand.trimmingCharacters(in: .whitespacesAndNewlines),
                 customCommands: customCommands,
                 environment: environment,
                 customSystem: customSystem,
+                pveEnabled: pveEnabled,
                 disabledStatusTypes: existingServer?.disabledStatusTypes ?? [],
                 statusURL: statusURL,
                 isEnabled: isEnabled,
@@ -330,12 +397,18 @@ struct ServerEditorView: View {
             case .password:
                 credential = secret.isEmpty ? nil : .password(secret)
             case .privateKey:
-                credential = secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-                    ? nil
-                    : .privateKey(
-                        secret,
-                        passphrase: passphrase.isEmpty ? nil : passphrase
-                    )
+                if selectedPrivateKeyID != nil {
+                    // The selected key already lives in PrivateKeyStore; do not copy it
+                    // into the per-server credential store.
+                    credential = nil
+                } else {
+                    credential = secret.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                        ? nil
+                        : .privateKey(
+                            secret,
+                            passphrase: passphrase.isEmpty ? nil : passphrase
+                        )
+                }
             }
 
             try configuration.validate()
@@ -366,6 +439,12 @@ struct ServerEditorView: View {
         case .privateKey:
             return .privateKey
         }
+    }
+
+    private var existingPrivateKeyID: String? {
+        guard let authentication = existingServer?.authentication else { return nil }
+        if case .privateKey(let id) = authentication { return id }
+        return nil
     }
 
     private static func jsonText(_ values: [String: String]) -> String {

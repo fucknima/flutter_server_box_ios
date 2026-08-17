@@ -26,6 +26,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
     var customCommands: [String: String]
     var environment: [String: String]
     var customSystem: RemoteSystem
+    var pveEnabled: Bool
     var disabledStatusTypes: Set<String>
     var statusURL: URL?
     var isEnabled: Bool
@@ -47,6 +48,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         customCommands: [String: String] = [:],
         environment: [String: String] = [:],
         customSystem: RemoteSystem = .automatic,
+        pveEnabled: Bool = false,
         disabledStatusTypes: Set<String> = [],
         statusURL: URL? = nil,
         isEnabled: Bool = true,
@@ -67,6 +69,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         self.customCommands = customCommands
         self.environment = environment
         self.customSystem = customSystem
+        self.pveEnabled = pveEnabled
         self.disabledStatusTypes = disabledStatusTypes
         self.statusURL = statusURL
         self.isEnabled = isEnabled
@@ -89,6 +92,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         case customCommands
         case environment
         case customSystem
+        case pveEnabled
         case disabledStatusTypes
         case statusURL
         case isEnabled
@@ -124,6 +128,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
             forKey: .environment
         ) ?? [:]
         customSystem = try container.decodeIfPresent(RemoteSystem.self, forKey: .customSystem) ?? .automatic
+        pveEnabled = try container.decodeIfPresent(Bool.self, forKey: .pveEnabled) ?? false
         disabledStatusTypes = try container.decodeIfPresent(
             Set<String>.self,
             forKey: .disabledStatusTypes
@@ -150,6 +155,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         try container.encode(customCommands, forKey: .customCommands)
         try container.encode(environment, forKey: .environment)
         try container.encode(customSystem, forKey: .customSystem)
+        try container.encode(pveEnabled, forKey: .pveEnabled)
         try container.encode(disabledStatusTypes, forKey: .disabledStatusTypes)
         try container.encodeIfPresent(statusURL, forKey: .statusURL)
         try container.encode(isEnabled, forKey: .isEnabled)
@@ -186,6 +192,9 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
            proxyCommand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
             throw ServerConfigurationError.jumpAndProxyConflict
         }
+        if proxyCommand?.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty == false {
+            throw ServerConfigurationError.proxyCommandUnsupported
+        }
     }
 
     func isSameConnection(as other: ServerConfiguration) -> Bool {
@@ -212,6 +221,8 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
     case invalidStatusURL
     case missingCredential
     case jumpAndProxyConflict
+    case proxyCommandUnsupported
+    case duplicateBackupServer
 
     var errorDescription: String? {
         switch self {
@@ -229,6 +240,10 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
             return "Enter a password or private key for this server."
         case .jumpAndProxyConflict:
             return "A jump host and a proxy command cannot be used together."
+        case .proxyCommandUnsupported:
+            return "Proxy commands are not supported on iOS. Clear the proxy command or use jump hosts."
+        case .duplicateBackupServer:
+            return "The backup contains duplicate server identifiers."
         }
     }
 }

@@ -12,22 +12,39 @@ final class TerminalViewModel: ObservableObject {
     @Published private(set) var output = ""
     @Published var input = ""
     @Published private(set) var state: State = .connecting
+    @Published private(set) var commandHistory: [String] = []
 
     private let openSession: () async throws -> SSHTerminalSession
+    private let initialCommand: String?
     private var session: SSHTerminalSession?
     private var outputTask: Task<Void, Never>?
     private var outputParser = TerminalOutputParser()
+    private var lifecycleGeneration = 0
+    private var lastTerminalSize: (columns: Int, rows: Int)?
+    private var requestedTerminalSize: (columns: Int, rows: Int)?
+    private var historyCursor = 0
 
-    init(openSession: @escaping () async throws -> SSHTerminalSession) {
+    init(
+        openSession: @escaping () async throws -> SSHTerminalSession,
+        initialCommand: String? = nil
+    ) {
         self.openSession = openSession
+        self.initialCommand = initialCommand
     }
 
     func start() async {
         guard session == nil else { return }
+        lifecycleGeneration += 1
+        let generation = lifecycleGeneration
+        lastTerminalSize = nil
         state = .connecting
 
         do {
             let session = try await openSession()
+            guard generation == lifecycleGeneration, !Task.isCancelled else {
+                await session.close()
+                return
+            }
             self.session = session
             state = .connected
             let output = await session.output
@@ -46,18 +63,57 @@ final class TerminalViewModel: ObservableObject {
                     }
                 }
             }
+            if let requestedTerminalSize {
+                do {
+                    try await session.resize(
+                        columns: requestedTerminalSize.columns,
+                        rows: requestedTerminalSize.rows
+                    )
+                    lastTerminalSize = requestedTerminalSize
+                } catch {
+                }
+            }
+            guard generation == lifecycleGeneration, !Task.isCancelled else {
+                await session.close()
+                return
+            }
+            if let initialCommand, !initialCommand.isEmpty {
+                try await session.send(initialCommand + "\n")
+            }
         } catch {
             state = .failed(error.localizedDescription)
         }
     }
 
     func sendLine() async {
+        guard state == .connected else { return }
         let line = input
         input = ""
+        if !line.isEmpty {
+            commandHistory.removeAll { $0 == line }
+            commandHistory.append(line)
+            if commandHistory.count > 100 {
+                commandHistory.removeFirst(commandHistory.count - 100)
+            }
+        }
+        historyCursor = commandHistory.count
         await send(line + "\n")
     }
 
+    func previousCommand() {
+        guard !commandHistory.isEmpty else { return }
+        historyCursor = max(0, historyCursor - 1)
+        input = commandHistory[historyCursor]
+    }
+
+    func nextCommand() {
+        guard !commandHistory.isEmpty else { return }
+        historyCursor = min(commandHistory.count, historyCursor + 1)
+        input = historyCursor == commandHistory.count ? "" : commandHistory[historyCursor]
+    }
+
     func send(_ value: String) async {
+        guard state == .connected else { return }
         guard let session else { return }
         do {
             try await session.send(value)
@@ -66,13 +122,43 @@ final class TerminalViewModel: ObservableObject {
         }
     }
 
+    func sendControl(_ value: String) async {
+        await send(value)
+    }
+
+    func resize(columns: Int, rows: Int) async {
+        guard columns > 0, rows > 0 else { return }
+        requestedTerminalSize = (columns, rows)
+        guard let session else { return }
+        guard lastTerminalSize?.columns != columns || lastTerminalSize?.rows != rows else {
+            return
+        }
+        do {
+            try await session.resize(columns: columns, rows: rows)
+            lastTerminalSize = (columns, rows)
+        } catch {
+        }
+    }
+
+    func clearOutput() {
+        output = ""
+        outputParser = TerminalOutputParser()
+    }
+
+    func retry() async {
+        await close()
+        await start()
+    }
+
     func close() async {
+        lifecycleGeneration += 1
         outputTask?.cancel()
         outputTask = nil
         if let session {
             await session.close()
         }
         session = nil
+        lastTerminalSize = nil
         state = .disconnected
     }
 
@@ -92,16 +178,31 @@ struct TerminalView: View {
     @StateObject private var viewModel: TerminalViewModel
     @FocusState private var inputFocused: Bool
 
-    init(openSession: @escaping () async throws -> SSHTerminalSession) {
-        _viewModel = StateObject(wrappedValue: TerminalViewModel(openSession: openSession))
+    init(
+        initialCommand: String? = nil,
+        openSession: @escaping () async throws -> SSHTerminalSession
+    ) {
+        _viewModel = StateObject(
+            wrappedValue: TerminalViewModel(
+                openSession: openSession,
+                initialCommand: initialCommand
+            )
+        )
     }
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 0) {
-                terminalOutput
-                Divider()
-                commandBar
+            GeometryReader { geometry in
+                VStack(spacing: 0) {
+                    terminalOutput
+                    Divider()
+                    commandBar
+                }
+                .onChange(of: geometry.size, initial: true) { _, size in
+                    let columns = max(40, Int(size.width / 8))
+                    let rows = max(8, Int(max(0, size.height - 64) / 18))
+                    Task { await viewModel.resize(columns: columns, rows: rows) }
+                }
             }
             .background(Color.black)
             .navigationTitle("SSH Terminal")
@@ -119,6 +220,21 @@ struct TerminalView: View {
                     Label(stateTitle, systemImage: stateIcon)
                         .font(.caption)
                         .foregroundStyle(stateColor)
+                }
+                ToolbarItem(placement: .topBarTrailing) {
+                    Menu {
+                        Button("Clear output", systemImage: "trash") {
+                            viewModel.clearOutput()
+                        }
+                        if case .failed = viewModel.state {
+                            Button("Retry", systemImage: "arrow.clockwise") {
+                                Task { await viewModel.retry() }
+                            }
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis.circle")
+                    }
+                    .accessibilityLabel("Terminal actions")
                 }
             }
             .task {
@@ -174,11 +290,26 @@ struct TerminalView: View {
             }
             .disabled(viewModel.input.isEmpty || viewModel.state != .connected)
 
-            Button("Ctrl-C") {
-                Task { await viewModel.send("\u{3}") }
-            }
+                Button("Ctrl-C") {
+                    Task { await viewModel.sendControl("\u{3}") }
+                }
             .font(.caption)
             .buttonStyle(.bordered)
+            .disabled(viewModel.state != .connected)
+
+                Menu {
+                    Button("Previous command") { viewModel.previousCommand() }
+                    Button("Next command") { viewModel.nextCommand() }
+                    Divider()
+                    Button("Tab") { Task { await viewModel.sendControl("\t") } }
+                    Button("Escape") { Task { await viewModel.sendControl("\u{1B}") } }
+                    Button("Ctrl-D") { Task { await viewModel.sendControl("\u{4}") } }
+                    Button("Ctrl-L") { Task { await viewModel.sendControl("\u{C}") } }
+                    Button("Arrow up") { Task { await viewModel.sendControl("\u{1B}[A") } }
+                    Button("Arrow down") { Task { await viewModel.sendControl("\u{1B}[B") } }
+                } label: {
+                Image(systemName: "keyboard")
+            }
             .disabled(viewModel.state != .connected)
         }
         .padding(DesignTokens.spaceS)

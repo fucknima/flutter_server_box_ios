@@ -44,6 +44,19 @@
 		A100000000000000000000A7 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B7 /* SettingsView.swift */; };
 		A100000000000000000000A8 /* ServerDetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B8 /* ServerDetailView.swift */; };
 		A100000000000000000000A9 /* ServerDiscoveryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000B9 /* ServerDiscoveryView.swift */; };
+		A100000000000000000000AA /* SFTPTransfer.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BA /* SFTPTransfer.swift */; };
+		A100000000000000000000AB /* SFTPTransferViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BB /* SFTPTransferViewModel.swift */; };
+		A100000000000000000000AC /* SFTPMissionsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BC /* SFTPMissionsView.swift */; };
+		A100000000000000000000AD /* PrivateKey.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BD /* PrivateKey.swift */; };
+		A100000000000000000000AE /* PrivateKeyStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BE /* PrivateKeyStore.swift */; };
+		A100000000000000000000AF /* PVEResource.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000BF /* PVEResource.swift */; };
+		A100000000000000000000C0 /* PVEView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C1 /* PVEView.swift */; };
+		A100000000000000000000C2 /* IperfView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000C3 /* IperfView.swift */; };
+		A100000000000000000000D0 /* PortForward.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D1 /* PortForward.swift */; };
+		A100000000000000000000D2 /* PortForwardStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D3 /* PortForwardStore.swift */; };
+		A100000000000000000000D4 /* SSHPortForwardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D5 /* SSHPortForwardService.swift */; };
+		A100000000000000000000D6 /* PortForwardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D7 /* PortForwardViewModel.swift */; };
+		A100000000000000000000D8 /* PortForwardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D9 /* PortForwardView.swift */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
@@ -103,6 +116,19 @@
 		A100000000000000000000B7 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B8 /* ServerDetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDetailView.swift; sourceTree = "<group>"; };
 		A100000000000000000000B9 /* ServerDiscoveryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ServerDiscoveryView.swift; sourceTree = "<group>"; };
+		A100000000000000000000BA /* SFTPTransfer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPTransfer.swift; sourceTree = "<group>"; };
+		A100000000000000000000BB /* SFTPTransferViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPTransferViewModel.swift; sourceTree = "<group>"; };
+		A100000000000000000000BC /* SFTPMissionsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SFTPMissionsView.swift; sourceTree = "<group>"; };
+		A100000000000000000000BD /* PrivateKey.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKey.swift; sourceTree = "<group>"; };
+		A100000000000000000000BE /* PrivateKeyStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PrivateKeyStore.swift; sourceTree = "<group>"; };
+		A100000000000000000000BF /* PVEResource.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PVEResource.swift; sourceTree = "<group>"; };
+		A100000000000000000000C1 /* PVEView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PVEView.swift; sourceTree = "<group>"; };
+		A100000000000000000000C3 /* IperfView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IperfView.swift; sourceTree = "<group>"; };
+		A100000000000000000000D1 /* PortForward.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForward.swift; sourceTree = "<group>"; };
+		A100000000000000000000D3 /* PortForwardStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardStore.swift; sourceTree = "<group>"; };
+		A100000000000000000000D5 /* SSHPortForwardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHPortForwardService.swift; sourceTree = "<group>"; };
+		A100000000000000000000D7 /* PortForwardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardViewModel.swift; sourceTree = "<group>"; };
+		A100000000000000000000D9 /* PortForwardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -168,6 +194,10 @@
 				A10000000000000000000020 /* ServerConfiguration.swift */,
 				A10000000000000000000028 /* ConnectionStats.swift */,
 				A100000000000000000000B2 /* Snippet.swift */,
+				A100000000000000000000BA /* SFTPTransfer.swift */,
+				A100000000000000000000BD /* PrivateKey.swift */,
+				A100000000000000000000BF /* PVEResource.swift */,
+				A100000000000000000000D1 /* PortForward.swift */,
 			);
 			path = Models;
 			sourceTree = "<group>";
@@ -183,6 +213,9 @@
 				A10000000000000000000029 /* ConnectionStatsStore.swift */,
 				A1000000000000000000002C /* TerminalOutputParser.swift */,
 				A100000000000000000000B3 /* SnippetStore.swift */,
+				A100000000000000000000BE /* PrivateKeyStore.swift */,
+				A100000000000000000000D3 /* PortForwardStore.swift */,
+				A100000000000000000000D5 /* SSHPortForwardService.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -193,6 +226,8 @@
 				A10000000000000000000016 /* ServerListViewModel.swift */,
 				A1000000000000000000002A /* ConnectionStatsViewModel.swift */,
 				A100000000000000000000B4 /* SnippetListViewModel.swift */,
+				A100000000000000000000BB /* SFTPTransferViewModel.swift */,
+				A100000000000000000000D7 /* PortForwardViewModel.swift */,
 			);
 			path = ViewModels;
 			sourceTree = "<group>";
@@ -223,6 +258,10 @@
 				A100000000000000000000B7 /* SettingsView.swift */,
 				A100000000000000000000B8 /* ServerDetailView.swift */,
 				A100000000000000000000B9 /* ServerDiscoveryView.swift */,
+				A100000000000000000000BC /* SFTPMissionsView.swift */,
+				A100000000000000000000C1 /* PVEView.swift */,
+				A100000000000000000000C3 /* IperfView.swift */,
+				A100000000000000000000D9 /* PortForwardView.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -393,6 +432,19 @@
 				A100000000000000000000A7 /* SettingsView.swift in Sources */,
 				A100000000000000000000A8 /* ServerDetailView.swift in Sources */,
 				A100000000000000000000A9 /* ServerDiscoveryView.swift in Sources */,
+				A100000000000000000000AA /* SFTPTransfer.swift in Sources */,
+				A100000000000000000000AB /* SFTPTransferViewModel.swift in Sources */,
+				A100000000000000000000AC /* SFTPMissionsView.swift in Sources */,
+				A100000000000000000000AD /* PrivateKey.swift in Sources */,
+				A100000000000000000000AE /* PrivateKeyStore.swift in Sources */,
+				A100000000000000000000AF /* PVEResource.swift in Sources */,
+				A100000000000000000000C0 /* PVEView.swift in Sources */,
+				A100000000000000000000C2 /* IperfView.swift in Sources */,
+				A100000000000000000000D0 /* PortForward.swift in Sources */,
+				A100000000000000000000D2 /* PortForwardStore.swift in Sources */,
+				A100000000000000000000D4 /* SSHPortForwardService.swift in Sources */,
+				A100000000000000000000D6 /* PortForwardViewModel.swift in Sources */,
+				A100000000000000000000D8 /* PortForwardView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

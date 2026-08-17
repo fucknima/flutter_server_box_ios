@@ -33,13 +33,15 @@ key identifiers.
 | Server editor and deduplication | `lib/view/page/server/edit` | Native model and editor flow exist; advanced fields remain |
 | Connection statistics | `lib/view/page/server/connection_stats.dart`, `lib/data/store/connection_stats.dart` | Native JSON history, summaries, cleanup, and SwiftUI screen exist |
 | SSH authentication | `lib/core/utils/server.dart`, `ssh_auth.dart` | Citadel transport integrated for password and private-key flows |
-| Jump hosts and proxy command | `lib/core/utils/jump_chain.dart`, `proxy_command_socket.dart` | Jump-chain transport integrated; proxy execution remains |
+| Jump hosts and proxy command | `lib/core/utils/jump_chain.dart`, `proxy_command_socket.dart` | Recursive ordered jump candidates are supported; proxy commands are explicitly rejected on iOS because arbitrary process execution is unavailable |
 | Remote status script and parsers | `lib/data/model/app/scripts`, `server_status_update_req.dart` | Framed SSH status protocol ported for base metrics |
-| SSH terminal and tmux | `lib/view/page/ssh`, `lib/data/ssh` | PTY terminal exists; tmux/session management remains |
-| SFTP and local files | `lib/view/page/storage` | Remote SFTP browser and preview exist; local files/missions remain |
-| Docker, process, systemd, PVE | `lib/view/page/container`, `process.dart`, `systemd.dart`, `pve.dart` | Process, systemd, and Docker/Podman tools exist; PVE remains |
-| Snippets and agent | `lib/view/page/snippet`, `agent` | Planned feature modules |
-| Backup and settings | `lib/view/page/backup`, `setting` | Planned native repositories and settings |
+| SSH terminal and tmux | `lib/view/page/ssh`, `lib/data/ssh` | PTY terminal, initial commands, resize, control keys, lifecycle-safe sessions, and bounded command history exist; full xterm rendering, tmux/session management, and multi-tab restore remain |
+| SFTP and local files | `lib/view/page/storage` | Browser, home/search/sort/path navigation, UTF-8 editing, upload/download progress/cancel, missions, chmod, recursive delete, basic remote file operations, local open/share, and local files exist; sudo fallback and binary-aware editor parity remain |
+| Docker, process, systemd, PVE | `lib/view/page/container`, `process.dart`, `systemd.dart`, `pve.dart` | Process, systemd, Docker/Podman tools, and SSH-backed PVE resource listing/control exist; full container/image/PVE detail screens remain |
+| iperf | `lib/view/page/iperf.dart` | Native form launches the same iperf command in the PTY |
+| Port forwarding | `lib/view/page/port_forward.dart`, `lib/data/provider/port_forward_provider.dart` | Native persisted rules support local, remote, and SOCKS5 forwarding through Citadel/NIO |
+| Snippets and agent | `lib/view/page/snippet`, `agent` | Persisted snippets, ordered auto-run, basic Agent chat/history, and Keychain API credentials exist; Agent tool execution and full conversation replay remain |
+| Backup and settings | `lib/view/page/backup`, `setting` | Native appearance, home tabs, agent, reusable private-key Keychain CRUD, credential-free JSON export/import, and settings shell exist; cloud sync, encrypted backup password, and provider-specific sync remain |
 | Widget | `ios/StatusWidget` | Existing Flutter extension retained until native data sharing is complete |
 | Watch | `ios/WatchApp` | Explicitly out of scope; do not migrate |
 
