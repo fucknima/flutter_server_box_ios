@@ -6,7 +6,7 @@ struct ServerStatus: Codable, Equatable, Sendable {
     let memory: String
     let disk: String
     let network: String
-    let dist: String
+    var dist: String
     var customCmds: [String: String]
 
     enum CodingKeys: String, CodingKey {

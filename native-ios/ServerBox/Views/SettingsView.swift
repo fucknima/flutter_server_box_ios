@@ -50,8 +50,10 @@ struct SettingsView: View {
                     }
                 }
 
-                Section("iOS push") {
+                Section {
                     pushTokenRow
+                } header: {
+                    Text("iOS push")
                 } footer: {
                     Text("Use the push token with your own push service. Self-compiled builds cannot use the project push service.")
                 }
