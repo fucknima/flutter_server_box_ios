@@ -169,12 +169,16 @@ struct Provider: IntentTimelineProvider {
         if #available(iOSApplicationExtension 16.0, *) {
             if family == .accessoryInline || family == .accessoryRectangular {
                 url = UserDefaults(suiteName: WidgetConstants.appGroupId)?.string(forKey: "accessory_widget_url")
+            } else if let url = url {
+                // Remember the latest configured widget URL so accessory widgets
+                // can reuse it when they have no URL of their own.
+                UserDefaults(suiteName: WidgetConstants.appGroupId)?.set(url, forKey: "accessory_widget_url")
             }
         }
         #endif
 
         let currentDate = Date()
-        let refreshDate = Calendar.current.date(byAdding: .minute, value: 15, to: currentDate)!
+        let refreshDate = Calendar.current.date(byAdding: .minute, value: 30, to: currentDate)!
         fetch(url: url) { result in
             let entry: SimpleEntry = SimpleEntry(
                 date: currentDate,
@@ -191,12 +195,26 @@ struct Provider: IntentTimelineProvider {
             completion(.error(.url("url is nil OR len < 12")))
             return
         }
-        guard let url = URL(string: url) else {
+        guard var components = URLComponents(string: url) else {
+            completion(.error(.url("parse url failed")))
+            return
+        }
+        guard components.path.hasSuffix("/status") else {
+            completion(.error(.url("url must end with /status")))
+            return
+        }
+        if components.scheme == "http" {
+            let host = components.host ?? ""
+            if !isLANIP(host) {
+                components.scheme = "https"
+            }
+        }
+        guard let finalURL = components.url else {
             completion(.error(.url("parse url failed")))
             return
         }
 
-        let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
+        let task = URLSession.shared.dataTask(with: finalURL) { (data, response, error) in
             if error != nil {
                 completion(.error(.http(error?.localizedDescription ?? "unknown http err")))
                 return
@@ -205,7 +223,10 @@ struct Provider: IntentTimelineProvider {
                 completion(.error(.http("empty http data")))
                 return
             }
-            let jsonAll = try! JSONSerialization.jsonObject(with: data, options: []) as? [String: Any] ?? [:]
+            guard let jsonAll = (try? JSONSerialization.jsonObject(with: data, options: [])) as? [String: Any] else {
+                completion(.error(.http("invalid json")))
+                return
+            }
             let code = jsonAll["code"] as? Int ?? 1
             if (code != 0) {
                 let msg = jsonAll["msg"] as? String ?? "Empty err"
@@ -222,6 +243,17 @@ struct Provider: IntentTimelineProvider {
             completion(.normal(Status(name: name, cpu: cpu, mem: mem, disk: disk, net: net)))
         }
         task.resume()
+    }
+
+    private func isLANIP(_ host: String) -> Bool {
+        let parts = host.split(separator: ".")
+        guard parts.count == 4 else { return false }
+        let numbers = parts.compactMap { Int($0) }
+        guard numbers.count == 4 else { return false }
+        if numbers[0] == 10 { return true }
+        if numbers[0] == 172, (16...31).contains(numbers[1]) { return true }
+        if numbers[0] == 192, numbers[1] == 168 { return true }
+        return host == "localhost"
     }
 }
 
