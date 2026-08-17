@@ -165,14 +165,14 @@ struct ServerCardView: View {
             }
         }
         .confirmationDialog(
-            powerAction?.confirmationTitle ?? "",
+            pendingPowerAction?.confirmationTitle ?? "",
             isPresented: Binding(
                 get: { pendingPowerAction != nil },
                 set: { if !$0 { pendingPowerAction = nil } }
             ),
             titleVisibility: .visible
         ) {
-            Button(powerAction?.confirmationTitle ?? "", role: .destructive) {
+            Button(pendingPowerAction?.confirmationTitle ?? "", role: .destructive) {
                 switch pendingPowerAction {
                 case .suspend: onSuspend()
                 case .shutdown: onShutdown()
@@ -184,7 +184,7 @@ struct ServerCardView: View {
                 pendingPowerAction = nil
             }
         } message: {
-            Text(powerAction?.confirmationMessage ?? "")
+            Text(pendingPowerAction?.confirmationMessage ?? "")
         }
     }
 
