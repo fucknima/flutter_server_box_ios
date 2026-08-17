@@ -247,13 +247,13 @@ final class DefaultCamera: NSObject, Camera {
       NotificationCenter.default.addObserver(
         self,
         selector: #selector(captureSessionWasInterrupted),
-        name: NSNotification.Name.avCaptureSessionWasInterrupted,
+        name: NSNotification.Name("AVCaptureSessionWasInterruptedNotification"),
         object: session)
 
       NotificationCenter.default.addObserver(
         self,
         selector: #selector(captureSessionRuntimeError),
-        name: NSNotification.Name.avCaptureSessionRuntimeError,
+        name: NSNotification.Name("AVCaptureSessionRuntimeErrorNotification"),
         object: session)
     }
   }
