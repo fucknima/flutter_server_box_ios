@@ -63,6 +63,10 @@ dependencies:
   fl_lib:
     path: packages/fl_lib
 
+dependency_overrides:
+  camera_avfoundation:
+    path: packages/patches/camera_avfoundation
+
 dev_dependencies:
   analyzer: ^9.0.0
   flutter_native_splash: ^2.1.6
