@@ -195,6 +195,9 @@ struct TerminalView: View {
             GeometryReader { geometry in
                 VStack(spacing: 0) {
                     terminalOutput
+                    if !enabledVirtKeys.isEmpty {
+                        virtKeyBar
+                    }
                     Divider()
                     commandBar
                 }
@@ -258,7 +261,7 @@ struct TerminalView: View {
                         Text(verbatim: viewModel.output)
                     }
                 }
-                .font(.system(.footnote, design: .monospaced))
+                .font(.system(size: 12 * SettingsStore.textFactor, design: .monospaced))
                 .foregroundStyle(.green)
                 .textSelection(.enabled)
                 .frame(maxWidth: .infinity, alignment: .leading)
@@ -270,6 +273,39 @@ struct TerminalView: View {
                 proxy.scrollTo("terminal-output", anchor: .bottom)
             }
         }
+    }
+
+    private var enabledVirtKeys: [VirtKeyDefinition] {
+        let catalog = VirtKeyCatalog.all
+        let storedOrder = SettingsStore.virtKeyOrder
+        let ordered = storedOrder.compactMap { id in catalog.first { $0.id == id } }
+        let missing = catalog.filter { key in !storedOrder.contains(key.id) }
+        let disabled = SettingsStore.virtKeyDisabled
+        return (ordered + missing).filter { !disabled.contains($0.id) }
+    }
+
+    private var virtKeyBar: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: DesignTokens.spaceS) {
+                ForEach(enabledVirtKeys) { key in
+                    Button {
+                        Task { await viewModel.send(key.sequence) }
+                    } label: {
+                        Text(key.label)
+                            .font(.system(.caption, design: .monospaced, weight: .medium))
+                            .padding(.horizontal, 10)
+                            .padding(.vertical, 6)
+                    }
+                    .buttonStyle(.bordered)
+                    .tint(.white)
+                    .disabled(viewModel.state != .connected)
+                    .accessibilityLabel(key.id)
+                }
+            }
+            .padding(.horizontal, DesignTokens.spaceS)
+            .padding(.vertical, 4)
+        }
+        .background(Color.black)
     }
 
     private var commandBar: some View {

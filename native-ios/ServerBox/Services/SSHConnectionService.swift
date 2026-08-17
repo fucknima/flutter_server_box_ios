@@ -1047,6 +1047,37 @@ actor SSHConnectionService {
         }
     }
 
+    private func connectWithTimeout(
+        to settings: SSHClientSettings,
+        timeout: TimeInterval
+    ) async throws -> SSHClient {
+        try await withThrowingTaskGroup(of: SSHClient.self) { group in
+            group.addTask {
+                try await SSHClient.connect(to: settings)
+            }
+            group.addTask {
+                try await Task.sleep(nanoseconds: UInt64(timeout * 1_000_000_000))
+                throw TimeoutError()
+            }
+            let result: SSHClient
+            do {
+                result = try await group.next()!
+            } catch {
+                group.cancelAll()
+                throw error
+            }
+            group.cancelAll()
+            try? await group.next()
+            return result
+        }
+    }
+
+    private struct TimeoutError: LocalizedError {
+        var errorDescription: String? {
+            "Connection timed out."
+        }
+    }
+
     private func connectSingle(
         server: ServerConfiguration,
         credential: SSHCredential,
@@ -1065,7 +1096,8 @@ actor SSHConnectionService {
             hostKeyCapture: hostKeyCapture
         )
         do {
-            let client = try await SSHClient.connect(to: settings)
+            let timeout = TimeInterval(SettingsStore.timeOut)
+            let client = try await connectWithTimeout(to: settings, timeout: timeout)
             return (
                 client,
                 allowUnverifiedHostKey ? hostKeyCapture.openSSHKey() : nil

@@ -152,7 +152,9 @@ final class ServerListViewModel: ObservableObject {
                 )
                 let status = try await api.fetchStatus(for: monitorServer)
                 guard generation == refreshGeneration else { return }
-                states[server.id] = .loaded(status)
+                let merged = await mergeSSHStatus(status, for: server)
+                guard generation == refreshGeneration else { return }
+                states[server.id] = .loaded(merged)
             } catch is CancellationError {
                 return
             } catch {
@@ -160,6 +162,22 @@ final class ServerListViewModel: ObservableObject {
                 states[server.id] = .failed(error.localizedDescription)
             }
         }
+    }
+
+    private func mergeSSHStatus(
+        _ status: ServerStatus,
+        for server: ServerConfiguration
+    ) async -> ServerStatus {
+        guard connectionState(for: server) == .connected else { return status }
+        guard let sshStatus = try? await sshStatusService.fetchStatus(for: server) else {
+            return status
+        }
+        var merged = status
+        merged.customCmds = sshStatus.customCmds
+        if merged.dist.isEmpty {
+            merged.dist = sshStatus.dist
+        }
+        return merged
     }
 
     func state(for server: ServerConfiguration) -> ServerStatusState {
@@ -304,6 +322,100 @@ final class ServerListViewModel: ObservableObject {
                 connectionStates[server.id] = connectionStates[server.id] ?? .disconnected
             }
         }
+    }
+
+    func importBulkServers(from url: URL) async throws -> Int {
+        let accessed = url.startAccessingSecurityScopedResource()
+        defer { if accessed { url.stopAccessingSecurityScopedResource() } }
+
+        let data = try Data(contentsOf: url)
+        let imported = try JSONDecoder().decode([BulkImportServer].self, from: data)
+        let privateKeys = try PrivateKeyStore.live.records()
+        let existingNames = Set(servers.map(\.name))
+        var usedNames = Set<String>()
+        var added = 0
+
+        for entry in imported {
+            let trimmedName = entry.name.trimmingCharacters(in: .whitespacesAndNewlines)
+            let trimmedHost = entry.ip.trimmingCharacters(in: .whitespacesAndNewlines)
+            guard !trimmedName.isEmpty, !trimmedHost.isEmpty else { continue }
+
+            let authentication: ServerAuthenticationReference
+            let credential: ServerCredentialInput?
+            if !entry.keyId.isEmpty,
+               let record = privateKeys.first(where: { $0.name == entry.keyId }) {
+                authentication = .privateKey(id: record.id)
+                credential = nil
+            } else if !entry.pwd.isEmpty {
+                authentication = .password
+                credential = .password(entry.pwd)
+            } else {
+                continue
+            }
+
+            let username = entry.user.trimmingCharacters(in: .whitespacesAndNewlines)
+            let server = ServerConfiguration(
+                name: resolveBulkName(
+                    base: trimmedName,
+                    existing: existingNames,
+                    used: &usedNames
+                ),
+                host: trimmedHost,
+                port: entry.port,
+                username: username.isEmpty ? "root" : username,
+                authentication: authentication,
+                tags: entry.tags,
+                alternateEndpoint: Self.parseAlternateURL(entry.alterUrl),
+                autoConnect: entry.autoConnect
+            )
+            try server.validate()
+
+            let isDuplicate = servers.contains { $0.isSameConnection(as: server) }
+            guard !isDuplicate else { continue }
+
+            if let credential {
+                try credentialStore.save(credential, for: server.id)
+            }
+            upsert(server)
+            added += 1
+        }
+        return added
+    }
+
+    private func resolveBulkName(
+        base: String,
+        existing: Set<String>,
+        used: inout Set<String>
+    ) -> String {
+        var candidate = base
+        var suffix = 1
+        while existing.contains(candidate) || used.contains(candidate) {
+            suffix += 1
+            candidate = "\(base) (\(suffix))"
+        }
+        used.insert(candidate)
+        return candidate
+    }
+
+    private static func parseAlternateURL(_ value: String) -> AlternateEndpoint? {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return nil }
+        var user = ""
+        var host = trimmed
+        if let at = trimmed.lastIndex(of: "@") {
+            user = String(trimmed[..<at])
+            host = String(trimmed[trimmed.index(after: at)...])
+        }
+        let port: Int
+        if let colon = host.lastIndex(of: ":"),
+           let parsed = Int(host[host.index(after: colon)...]) {
+            port = parsed
+            host = String(host[..<colon])
+        } else {
+            port = 22
+        }
+        guard !host.isEmpty else { return nil }
+        return AlternateEndpoint(host: host, port: port, username: user)
     }
 
     func delete(_ server: ServerConfiguration) {
@@ -591,6 +703,17 @@ final class ServerListViewModel: ObservableObject {
     func execute(_ command: String, on server: ServerConfiguration) async throws -> String {
         try await SSHConnectionService.live.execute(command, on: server.id)
     }
+
+    func suspend(_ server: ServerConfiguration) async throws {
+        try await SSHConnectionService.live.execute(Self.suspendCommand, on: server.id)
+    }
+
+    func shutdown(_ server: ServerConfiguration) async throws {
+        try await SSHConnectionService.live.execute(Self.shutdownCommand, on: server.id)
+    }
+
+    private static let suspendCommand = "systemctl suspend"
+    private static let shutdownCommand = "shutdown -h now"
 
     func openTerminal(for server: ServerConfiguration) async throws -> SSHTerminalSession {
         try await SSHConnectionService.live.openTerminal(serverID: server.id)

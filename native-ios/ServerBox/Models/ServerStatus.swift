@@ -6,6 +6,8 @@ struct ServerStatus: Codable, Equatable, Sendable {
     let memory: String
     let disk: String
     let network: String
+    let dist: String
+    var customCmds: [String: String]
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -13,6 +15,8 @@ struct ServerStatus: Codable, Equatable, Sendable {
         case memory = "mem"
         case disk
         case network = "net"
+        case dist
+        case customCmds
     }
 
     init(
@@ -20,13 +24,17 @@ struct ServerStatus: Codable, Equatable, Sendable {
         cpu: String,
         memory: String,
         disk: String,
-        network: String
+        network: String,
+        dist: String = "",
+        customCmds: [String: String] = [:]
     ) {
         self.name = name
         self.cpu = cpu
         self.memory = memory
         self.disk = disk
         self.network = network
+        self.dist = dist
+        self.customCmds = customCmds
     }
 
     init(from decoder: Decoder) throws {
@@ -36,6 +44,8 @@ struct ServerStatus: Codable, Equatable, Sendable {
         memory = container.decodeFlexibleString(forKey: .memory)
         disk = container.decodeFlexibleString(forKey: .disk)
         network = container.decodeFlexibleString(forKey: .network)
+        dist = container.decodeFlexibleString(forKey: .dist)
+        customCmds = (try? container.decode([String: String].self, forKey: .customCmds)) ?? [:]
     }
 
     var cpuFraction: Double? {
@@ -123,6 +133,33 @@ struct MonitorStatusEnvelope: Decodable, Sendable {
         code = container.decodeFlexibleInt(forKey: .code, default: 1)
         message = container.decodeFlexibleString(forKey: .message)
         data = try container.decodeIfPresent(ServerStatus.self, forKey: .data)
+    }
+}
+
+enum Dist: String, CaseIterable, Sendable {
+    case debian
+    case ubuntu
+    case centos
+    case fedora
+    case opensuse
+    case kali
+    case wrt
+    case armbian
+    case arch
+    case alpine
+    case rocky
+    case deepin
+    case coreelec
+
+    static func detect(from string: String) -> String? {
+        let lower = string.lowercased()
+        for dist in allCases where lower.contains(dist.rawValue) {
+            return dist.rawValue
+        }
+        if lower.contains("istoreos") {
+            return Dist.wrt.rawValue
+        }
+        return nil
     }
 }
 

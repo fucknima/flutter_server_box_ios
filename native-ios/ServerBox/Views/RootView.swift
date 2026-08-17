@@ -336,6 +336,16 @@ struct RootView: View {
                     },
                     onDelete: {
                         serverToDelete = server
+                    },
+                    onSuspend: {
+                        Task {
+                            try? await viewModel.suspend(server)
+                        }
+                    },
+                    onShutdown: {
+                        Task {
+                            try? await viewModel.shutdown(server)
+                        }
                     }
                 )
             }

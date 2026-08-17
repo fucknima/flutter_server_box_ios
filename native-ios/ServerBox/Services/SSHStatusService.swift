@@ -5,10 +5,14 @@ struct SSHStatusService: Sendable {
 
     func fetchStatus(for server: ServerConfiguration) async throws -> ServerStatus {
         let raw = try await SSHConnectionService.live.execute(
-            SSHStatusProtocol.command,
+            SSHStatusProtocol.command(customCommands: server.customCommands),
             on: server.id
         )
-        return try SSHStatusProtocol.parse(raw, fallbackName: server.name)
+        return try SSHStatusProtocol.parse(
+            raw,
+            fallbackName: server.name,
+            customCommandNames: Array(server.customCommands.keys)
+        )
     }
 }
 
@@ -17,8 +21,7 @@ enum SSHStatusProtocol {
     static let dataPrefix = "SrvBoxData."
 
     private static let commands: [(String, String)] = [
-        ("host", "hostname 2>/dev/null || cat /etc/hostname"),
-        ("cpu", #"""
+        ("host", "hostname 2>/dev/null || cat /etc/hostname"),        ("cpu", #"""
         case "$(uname -s 2>/dev/null)" in
           Darwin|FreeBSD|OpenBSD|NetBSD)
             top -l 1 2>/dev/null | awk -F'[:,%]' '/CPU usage/ {gsub(/ /,"",$2); print $2 "%"; exit}'
@@ -49,13 +52,21 @@ enum SSHStatusProtocol {
             ;;
         esac
         """#),
+        ("dist", "cat /etc/*-release 2>/dev/null | grep ^PRETTY_NAME"),
     ]
 
-    static let command: String = commands
-        .map { framedCommand(name: $0.0, command: $0.1) }
-        .joined(separator: "\n")
+    static func command(customCommands: [String: String] = [:]) -> String {
+        let custom = customCommands.map { (name: $0.key, command: $0.value) }
+        return (commands + custom)
+            .map { framedCommand(name: $0.0, command: $0.1) }
+            .joined(separator: "\n")
+    }
 
-    static func parse(_ raw: String, fallbackName: String) throws -> ServerStatus {
+    static func parse(
+        _ raw: String,
+        fallbackName: String,
+        customCommandNames: [String] = []
+    ) throws -> ServerStatus {
         let sections = parseSections(raw)
         guard !sections.isEmpty else {
             throw SSHStatusError.invalidOutput
@@ -70,7 +81,9 @@ enum SSHStatusProtocol {
             cpu: value("cpu"),
             memory: value("memory"),
             disk: value("disk"),
-            network: value("network")
+            network: value("network"),
+            dist: Dist.detect(from: value("dist")) ?? "",
+            customCmds: sections.filter { customCommandNames.contains($0.key) }
         )
     }
 

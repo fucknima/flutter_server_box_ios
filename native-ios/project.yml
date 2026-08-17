@@ -28,6 +28,8 @@ targets:
       - path: ServerBox
         excludes:
           - Resources
+          - "*.entitlements"
+      - path: Shared
     resources:
       - path: ServerBox/Resources
         excludes:
@@ -40,6 +42,9 @@ targets:
         product: NIOSSH
       - package: SwiftNIO
         product: NIO
+      - target: StatusWidgetExtension
+    entitlements:
+      path: ServerBox/ServerBox.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native
@@ -47,6 +52,27 @@ targets:
         TARGETED_DEVICE_FAMILY: "1,2"
         CODE_SIGN_STYLE: Automatic
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+      configs:
+        Debug:
+          ENABLE_TESTABILITY: YES
+          SWIFT_OPTIMIZATION_LEVEL: "-Onone"
+  StatusWidgetExtension:
+    type: app-extension
+    platform: iOS
+    sources:
+      - path: StatusWidget
+        excludes:
+          - "*.entitlements"
+      - path: Shared
+    entitlements:
+      path: StatusWidget/StatusWidget.entitlements
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native.widget
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_CFBundleDisplayName: ServerBox Status
+        INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
+        SWIFT_VERSION: "5.9"
       configs:
         Debug:
           ENABLE_TESTABILITY: YES

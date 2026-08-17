@@ -42,7 +42,7 @@ key identifiers.
 | Port forwarding | `lib/view/page/port_forward.dart`, `lib/data/provider/port_forward_provider.dart` | Native persisted rules support local, remote, and SOCKS5 forwarding through Citadel/NIO |
 | Snippets and agent | `lib/view/page/snippet`, `agent` | Persisted snippets, ordered auto-run, basic Agent chat/history, and Keychain API credentials exist; Agent tool execution and full conversation replay remain |
 | Backup and settings | `lib/view/page/backup`, `setting` | Native appearance, home tabs, agent, reusable private-key Keychain CRUD, credential-free JSON export/import, and settings shell exist; cloud sync, encrypted backup password, and provider-specific sync remain |
-| Widget | `ios/StatusWidget` | Existing Flutter extension retained until native data sharing is complete |
+| Widget | `ios/StatusWidget` | Native WidgetKit extension with per-widget status URL configuration, 30-minute refresh, and accessory families; App Group `group.tech.lolli.serverbox.native` shared by the app and extension |
 | Watch | `ios/WatchApp` | Explicitly out of scope; do not migrate |
 
 ## Native routes

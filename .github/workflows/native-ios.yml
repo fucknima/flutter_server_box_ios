@@ -32,6 +32,12 @@ jobs:
       - name: Show toolchain
         run: xcodebuild -version
 
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd native-ios
+          xcodegen generate
+
       - name: Test on iOS Simulator
         run: >-
           xcodebuild
@@ -55,6 +61,12 @@ jobs:
         uses: maxim-lobanov/setup-xcode@v1
         with:
           xcode-version: "16.2"
+
+      - name: Generate Xcode project
+        run: |
+          brew install xcodegen
+          cd native-ios
+          xcodegen generate
 
       - name: Build for iPhoneOS
         run: >-

@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 struct SettingsView: View {
@@ -49,6 +50,24 @@ struct SettingsView: View {
                     }
                 }
 
+                Section("iOS push") {
+                    pushTokenRow
+                } footer: {
+                    Text("Use the push token with your own push service. Self-compiled builds cannot use the project push service.")
+                }
+
+                Section("SSH terminal") {
+                    NavigationLink("Virtual keys") {
+                        VirtKeysView()
+                    }
+                }
+
+                Section("Advanced") {
+                    NavigationLink("Edit raw settings") {
+                        RawSettingsEditorView()
+                    }
+                }
+
                 Section {
                     TextField("API endpoint", text: $agentBaseURL)
                         .textInputAutocapitalization(.never)
@@ -66,7 +85,7 @@ struct SettingsView: View {
 
                 Section("About") {
                     LabeledContent("Native UI", value: "SwiftUI")
-                    LabeledContent("Watch", value: "Flutter retained")
+                    LabeledContent("Home widget", value: "WidgetKit")
                     Text("Flutter remains the behavior reference while the main app UI is migrated screen by screen.")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
@@ -90,6 +109,35 @@ struct SettingsView: View {
             appearance == "dark" ? .dark : appearance == "light" ? .light : nil
         )
         .tint(DesignTokens.accent)
+    }
+
+    @ViewBuilder
+    private var pushTokenRow: some View {
+        let token = pushToken
+        if token.isEmpty {
+            Label("Push token unavailable", systemImage: "bell.slash")
+                .foregroundStyle(.secondary)
+            Button("Register for push notifications") {
+                AppDelegate.requestPushRegistration()
+            }
+        } else {
+            LabeledContent("Push token") {
+                Text(token)
+                    .font(.system(.caption, design: .monospaced))
+                    .lineLimit(2)
+                    .truncationMode(.middle)
+            }
+            Button("Copy token") {
+                UIPasteboard.general.string = token
+            }
+            Button("Refresh token") {
+                AppDelegate.requestPushRegistration()
+            }
+        }
+    }
+
+    private var pushToken: String {
+        UserDefaults.standard.string(forKey: AppGroup.pushTokenKey) ?? ""
     }
 }
 
@@ -307,6 +355,8 @@ private struct BackupView: View {
     @State private var exportURL: URL?
     @State private var errorMessage: String?
     @State private var showingImporter = false
+    @State private var showingBulkImporter = false
+    @State private var bulkImportMessage: String?
 
     var body: some View {
         Form {
@@ -325,8 +375,23 @@ private struct BackupView: View {
                 Text("Backup")
             }
 
+            Section {
+                Button("Bulk import servers") { showingBulkImporter = true }
+            } header: {
+                Text("Import")
+            } footer: {
+                Text("Import a JSON file: [{\"name\",\"ip\",\"port\",\"user\",\"pwd\",\"keyId\",\"tags\",\"alterUrl\",\"autoConnect\"}]. keyId is the name of a saved private key.")
+            }
+
             Section("Servers") {
                 LabeledContent("Server count", value: "\(serverViewModel.servers.count)")
+            }
+
+            if let bulkImportMessage {
+                Section {
+                    Label(bulkImportMessage, systemImage: "checkmark.circle")
+                        .foregroundStyle(.green)
+                }
             }
         }
         .navigationTitle("Backup")
@@ -340,6 +405,21 @@ private struct BackupView: View {
             Task {
                 do {
                     try await serverViewModel.importBackup(from: url)
+                } catch {
+                    errorMessage = error.localizedDescription
+                }
+            }
+        }
+        .fileImporter(
+            isPresented: $showingBulkImporter,
+            allowedContentTypes: [.json],
+            allowsMultipleSelection: false
+        ) { result in
+            guard case .success(let urls) = result, let url = urls.first else { return }
+            Task {
+                do {
+                    let count = try await serverViewModel.importBulkServers(from: url)
+                    bulkImportMessage = "Imported \(count) servers."
                 } catch {
                     errorMessage = error.localizedDescription
                 }

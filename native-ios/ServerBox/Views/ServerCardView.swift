@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct ServerCardView: View {
+    @Environment(\.colorScheme) private var colorScheme
     let server: ServerConfiguration
     let state: ServerStatusState
     let connectionState: SSHConnectionState
@@ -15,10 +16,23 @@ struct ServerCardView: View {
     let onOpenTools: () -> Void
     let onEdit: () -> Void
     let onDelete: () -> Void
+    let onSuspend: () -> Void
+    let onShutdown: () -> Void
+
+    @State private var pendingPowerAction: PowerAction?
+
+    enum PowerAction: String, Identifiable {
+        case suspend
+        case shutdown
+
+        var id: String { rawValue }
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceM) {
             HStack(alignment: .top, spacing: DesignTokens.spaceS) {
+                logoView
+
                 VStack(alignment: .leading, spacing: 4) {
                     Button(action: onOpenDetail) {
                         Text(displayName)
@@ -34,6 +48,14 @@ struct ServerCardView: View {
                 }
 
                 Spacer(minLength: DesignTokens.spaceS)
+
+                if let topRightText {
+                    Text(topRightText)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .lineLimit(2)
+                        .multilineTextAlignment(.trailing)
+                }
 
                 Menu {
                     switch connectionState {
@@ -119,6 +141,96 @@ struct ServerCardView: View {
             RoundedRectangle(cornerRadius: DesignTokens.radiusM)
                 .strokeBorder(.primary.opacity(0.06))
         }
+        .contextMenu {
+            Button {
+                onEdit()
+            } label: {
+                Label("Edit", systemImage: "pencil")
+            }
+            Button {
+                pendingPowerAction = .suspend
+            } label: {
+                Label("Suspend", systemImage: "pause.circle")
+            }
+            Button(role: .destructive) {
+                pendingPowerAction = .shutdown
+            } label: {
+                Label("Shutdown", systemImage: "power")
+            }
+            Divider()
+            Button(role: .destructive) {
+                onDelete()
+            } label: {
+                Label("Delete", systemImage: "trash")
+            }
+        }
+        .confirmationDialog(
+            powerAction?.confirmationTitle ?? "",
+            isPresented: Binding(
+                get: { pendingPowerAction != nil },
+                set: { if !$0 { pendingPowerAction = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(powerAction?.confirmationTitle ?? "", role: .destructive) {
+                switch pendingPowerAction {
+                case .suspend: onSuspend()
+                case .shutdown: onShutdown()
+                case nil: break
+                }
+                pendingPowerAction = nil
+            }
+            Button("Cancel", role: .cancel) {
+                pendingPowerAction = nil
+            }
+        } message: {
+            Text(powerAction?.confirmationMessage ?? "")
+        }
+    }
+
+    @ViewBuilder
+    private var logoView: some View {
+        if let logoURL = resolvedLogoURL {
+            AsyncImage(url: logoURL) { phase in
+                switch phase {
+                case .success(let image):
+                    image
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
+                        .clipShape(RoundedRectangle(cornerRadius: 8))
+                default:
+                    Image(systemName: "server.rack")
+                        .font(.title2)
+                        .foregroundStyle(.secondary)
+                        .frame(width: 36, height: 36)
+                }
+            }
+        }
+    }
+
+    private var topRightText: String? {
+        guard case .loaded(let status) = state else { return nil }
+        guard let value = status.customCmds["server_card_top_right"] else { return nil }
+        let lines = value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "\n")
+        guard let last = lines.last?.trimmingCharacters(in: .whitespacesAndNewlines),
+              !last.isEmpty else { return nil }
+        return last
+    }
+
+    private var resolvedLogoURL: URL? {
+        guard let logoURL = server.logoURL else { return nil }
+        var urlString = logoURL.absoluteString
+        if case .loaded(let status) = state, !status.dist.isEmpty {
+            urlString = urlString.replacingOccurrences(of: "{DIST}", with: status.dist)
+        }
+        urlString = urlString.replacingOccurrences(
+            of: "{BRIGHT}",
+            with: colorScheme == .dark ? "dark" : "light"
+        )
+        return URL(string: urlString)
     }
 
     private var connectionSummary: some View {
@@ -247,6 +359,22 @@ struct ServerCardView: View {
             return .green
         case .failed:
             return .red
+        }
+    }
+}
+
+private extension ServerCardView.PowerAction {
+    var confirmationTitle: String {
+        switch self {
+        case .suspend: "Suspend"
+        case .shutdown: "Shutdown"
+        }
+    }
+
+    var confirmationMessage: String {
+        switch self {
+        case .suspend: "Suspend this server over SSH?"
+        case .shutdown: "Shut down this server over SSH?"
         }
     }
 }

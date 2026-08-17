@@ -29,6 +29,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
     var pveEnabled: Bool
     var disabledStatusTypes: Set<String>
     var statusURL: URL?
+    var logoURL: URL?
     var isEnabled: Bool
     let createdAt: Date
     var knownHostKey: String?
@@ -51,6 +52,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         pveEnabled: Bool = false,
         disabledStatusTypes: Set<String> = [],
         statusURL: URL? = nil,
+        logoURL: URL? = nil,
         isEnabled: Bool = true,
         createdAt: Date = Date(),
         knownHostKey: String? = nil
@@ -72,6 +74,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         self.pveEnabled = pveEnabled
         self.disabledStatusTypes = disabledStatusTypes
         self.statusURL = statusURL
+        self.logoURL = logoURL
         self.isEnabled = isEnabled
         self.createdAt = createdAt
         self.knownHostKey = knownHostKey
@@ -95,6 +98,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         case pveEnabled
         case disabledStatusTypes
         case statusURL
+        case logoURL
         case isEnabled
         case createdAt
         case knownHostKey
@@ -134,6 +138,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
             forKey: .disabledStatusTypes
         ) ?? []
         statusURL = try container.decodeIfPresent(URL.self, forKey: .statusURL)
+        logoURL = try container.decodeIfPresent(URL.self, forKey: .logoURL)
         isEnabled = try container.decodeIfPresent(Bool.self, forKey: .isEnabled) ?? true
         createdAt = try container.decodeIfPresent(Date.self, forKey: .createdAt) ?? Date()
         knownHostKey = try container.decodeIfPresent(String.self, forKey: .knownHostKey)
@@ -158,6 +163,7 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
         try container.encode(pveEnabled, forKey: .pveEnabled)
         try container.encode(disabledStatusTypes, forKey: .disabledStatusTypes)
         try container.encodeIfPresent(statusURL, forKey: .statusURL)
+        try container.encodeIfPresent(logoURL, forKey: .logoURL)
         try container.encode(isEnabled, forKey: .isEnabled)
         try container.encode(createdAt, forKey: .createdAt)
         try container.encodeIfPresent(knownHostKey, forKey: .knownHostKey)
@@ -186,6 +192,13 @@ struct ServerConfiguration: Codable, Equatable, Identifiable, Sendable {
                   scheme == "http" || scheme == "https",
                   statusURL.host?.isEmpty == false else {
                 throw ServerConfigurationError.invalidStatusURL
+            }
+        }
+        if let logoURL {
+            guard let scheme = logoURL.scheme?.lowercased(),
+                  scheme == "http" || scheme == "https",
+                  logoURL.host?.isEmpty == false else {
+                throw ServerConfigurationError.invalidLogoURL
             }
         }
         if !normalizedJumpServerIDs.isEmpty,
@@ -219,6 +232,7 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
     case invalidPort
     case emptyUsername
     case invalidStatusURL
+    case invalidLogoURL
     case missingCredential
     case jumpAndProxyConflict
     case proxyCommandUnsupported
@@ -236,6 +250,8 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
             return "Enter an SSH username."
         case .invalidStatusURL:
             return "Enter a valid HTTP or HTTPS status URL."
+        case .invalidLogoURL:
+            return "Enter a valid HTTP or HTTPS logo URL."
         case .missingCredential:
             return "Enter a password or private key for this server."
         case .jumpAndProxyConflict:
@@ -256,4 +272,41 @@ enum ServerCredentialInput: Equatable, Sendable {
 struct ServerEditorDraft: Sendable {
     let configuration: ServerConfiguration
     let credential: ServerCredentialInput?
+}
+
+struct BulkImportServer: Codable, Sendable {
+    let name: String
+    let ip: String
+    let port: Int
+    let user: String
+    let pwd: String
+    let keyId: String
+    let tags: [String]
+    let alterUrl: String
+    let autoConnect: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name
+        case ip
+        case port
+        case user
+        case pwd
+        case keyId
+        case tags
+        case alterUrl
+        case autoConnect
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        name = try container.decodeIfPresent(String.self, forKey: .name) ?? ""
+        ip = try container.decodeIfPresent(String.self, forKey: .ip) ?? ""
+        port = try container.decodeIfPresent(Int.self, forKey: .port) ?? 22
+        user = try container.decodeIfPresent(String.self, forKey: .user) ?? "root"
+        pwd = try container.decodeIfPresent(String.self, forKey: .pwd) ?? ""
+        keyId = try container.decodeIfPresent(String.self, forKey: .keyId) ?? ""
+        tags = try container.decodeIfPresent([String].self, forKey: .tags) ?? []
+        alterUrl = try container.decodeIfPresent(String.self, forKey: .alterUrl) ?? ""
+        autoConnect = try container.decodeIfPresent(Bool.self, forKey: .autoConnect) ?? false
+    }
 }

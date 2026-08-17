@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ServerDetailView: View {
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.colorScheme) private var colorScheme
     let server: ServerConfiguration
     let state: ServerStatusState
     let connectionState: SSHConnectionState
@@ -16,6 +17,7 @@ struct ServerDetailView: View {
     let onOpenIperf: () -> Void
     let onOpenPortForward: () -> Void
     let onEdit: () -> Void
+    @State private var inspectingCustomCommand: String?
 
     var body: some View {
         NavigationStack {
@@ -25,6 +27,7 @@ struct ServerDetailView: View {
                     actionBar
                     configurationSection
                     statusSection
+                    customCommandsSection
                 }
                 .padding(DesignTokens.spaceM)
             }
@@ -45,6 +48,23 @@ struct ServerDetailView: View {
     private var summaryHeader: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
             HStack(alignment: .firstTextBaseline) {
+                if let logoURL = resolvedLogoURL {
+                    AsyncImage(url: logoURL) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .scaledToFit()
+                                .frame(width: 40, height: 40)
+                                .clipShape(RoundedRectangle(cornerRadius: 8))
+                        default:
+                            Image(systemName: "server.rack")
+                                .font(.title2)
+                                .foregroundStyle(.secondary)
+                                .frame(width: 40, height: 40)
+                        }
+                    }
+                }
                 Text(server.name)
                     .font(.system(.title2, design: .rounded, weight: .bold))
                 Spacer()
@@ -191,6 +211,99 @@ struct ServerDetailView: View {
         }
         Button("iperf", action: onOpenIperf)
         Button("Port forwarding", action: onOpenPortForward)
+    }
+
+    @ViewBuilder
+    private var customCommandsSection: some View {
+        if case .loaded(let status) = state, !status.customCmds.isEmpty {
+            let entries = status.customCmds.sorted { $0.key < $1.key }
+            VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
+                Text("Custom commands")
+                    .font(.headline)
+                ForEach(entries, id: \.key) { key, value in
+                    Button {
+                        inspectingCustomCommand = key
+                    } label: {
+                        HStack(spacing: DesignTokens.spaceS) {
+                            Text(key)
+                                .font(.subheadline.weight(.medium))
+                                .foregroundStyle(.primary)
+                            Spacer()
+                            Text(oneLine(value))
+                                .font(.system(.caption, design: .monospaced))
+                                .foregroundStyle(.secondary)
+                                .lineLimit(2)
+                                .multilineTextAlignment(.trailing)
+                            if value.contains("\n") {
+                                Image(systemName: "info.circle")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                            }
+                        }
+                    }
+                    .buttonStyle(.plain)
+                }
+            }
+            .padding(DesignTokens.spaceM)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .background(DesignTokens.surface)
+            .clipShape(.rect(cornerRadius: DesignTokens.radiusM))
+            .sheet(
+                isPresented: Binding(
+                    get: { inspectingCustomCommand != nil },
+                    set: { if !$0 { inspectingCustomCommand = nil } }
+                )
+            ) {
+                customCommandOutputSheet(inspectingCustomCommand ?? "")
+            }
+        }
+    }
+
+    private func customCommandOutputSheet(_ key: String) -> some View {
+        let value: String = {
+            if case .loaded(let status) = state {
+                return status.customCmds[key] ?? ""
+            }
+            return ""
+        }()
+        return NavigationStack {
+            ScrollView {
+                Text(value)
+                    .font(.system(.footnote, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding()
+            }
+            .navigationTitle(key)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Done") { inspectingCustomCommand = nil }
+                }
+            }
+        }
+        .tint(DesignTokens.accent)
+    }
+
+    private func oneLine(_ value: String) -> String {
+        value
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+            .components(separatedBy: "\n")
+            .first?
+            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+    }
+
+    private var resolvedLogoURL: URL? {
+        guard let logoURL = server.logoURL else { return nil }
+        var urlString = logoURL.absoluteString
+        if case .loaded(let status) = state, !status.dist.isEmpty {
+            urlString = urlString.replacingOccurrences(of: "{DIST}", with: status.dist)
+        }
+        urlString = urlString.replacingOccurrences(
+            of: "{BRIGHT}",
+            with: colorScheme == .dark ? "dark" : "light"
+        )
+        return URL(string: urlString)
     }
 
     private func statusMetrics(_ status: ServerStatus) -> some View {

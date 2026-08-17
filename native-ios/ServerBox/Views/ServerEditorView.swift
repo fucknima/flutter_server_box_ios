@@ -12,6 +12,7 @@ struct ServerEditorView: View {
     @State private var selectedPrivateKeyID: String?
     @State private var privateKeyRecords: [PrivateKeyRecord]
     @State private var statusURLText: String
+    @State private var logoURLText: String
     @State private var autoConnect: Bool
     @State private var isEnabled: Bool
     @State private var tagsText: String
@@ -69,6 +70,7 @@ struct ServerEditorView: View {
         _selectedPrivateKeyID = State(initialValue: selectedKeyID)
         _privateKeyRecords = State(initialValue: savedKeys)
         _statusURLText = State(initialValue: server?.statusURL?.absoluteString ?? "")
+        _logoURLText = State(initialValue: server?.logoURL?.absoluteString ?? "")
         _autoConnect = State(initialValue: server?.autoConnect ?? true)
         _isEnabled = State(initialValue: server?.isEnabled ?? true)
         _tagsText = State(initialValue: server?.tags.joined(separator: ", ") ?? "")
@@ -119,10 +121,15 @@ struct ServerEditorView: View {
                         .keyboardType(.URL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
+
+                    TextField("https://example.com/logo.png", text: $logoURLText)
+                        .keyboardType(.URL)
+                        .textInputAutocapitalization(.never)
+                        .autocorrectionDisabled()
                 } header: {
                     Text("Status monitor (optional)")
                 } footer: {
-                    Text("If supplied, the existing HTTP monitor is refreshed alongside the SSH connection.")
+                    Text("If supplied, the existing HTTP monitor is refreshed alongside the SSH connection. The logo URL may contain {DIST} and {BRIGHT}, which are replaced with the server distribution and theme brightness.")
                 }
 
                 Section {
@@ -334,6 +341,18 @@ struct ServerEditorView: View {
                 statusURL = try MonitorEndpoint.normalizedURL(from: statusURLText)
             }
 
+            let logoURL: URL?
+            let trimmedLogo = logoURLText.trimmingCharacters(in: .whitespacesAndNewlines)
+            if trimmedLogo.isEmpty {
+                logoURL = nil
+            } else if let parsed = URL(string: trimmedLogo),
+                      let scheme = parsed.scheme?.lowercased(),
+                      scheme == "http" || scheme == "https" {
+                logoURL = parsed
+            } else {
+                throw ServerConfigurationError.invalidLogoURL
+            }
+
             let alternateEndpoint: AlternateEndpoint?
             let trimmedAlternateHost = alternateHost.trimmingCharacters(in: .whitespacesAndNewlines)
             if trimmedAlternateHost.isEmpty {
@@ -387,6 +406,7 @@ struct ServerEditorView: View {
                 pveEnabled: pveEnabled,
                 disabledStatusTypes: existingServer?.disabledStatusTypes ?? [],
                 statusURL: statusURL,
+                logoURL: logoURL,
                 isEnabled: isEnabled,
                 createdAt: existingServer?.createdAt ?? Date(),
                 knownHostKey: existingServer?.knownHostKey
