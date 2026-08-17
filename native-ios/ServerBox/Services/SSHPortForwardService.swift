@@ -370,8 +370,12 @@ actor SSHPortForwardService {
                 let setupTask = Task {
                     defer { connections.removeSetup(setupID) }
                     do {
-                        let originatorAddress = channel.remoteAddress
-                            ?? (try SocketAddress(ipAddress: "127.0.0.1", port: 0))
+                        let originatorAddress: SocketAddress
+                        if let remoteAddress = channel.remoteAddress {
+                            originatorAddress = remoteAddress
+                        } else {
+                            originatorAddress = try SocketAddress(ipAddress: "127.0.0.1", port: 0)
+                        }
                         let remoteChannel = try await client.createDirectTCPIPChannel(
                             using: SSHChannelType.DirectTCPIP(
                                 targetHost: remoteHost,
@@ -783,7 +787,7 @@ private final class PortForwardSSHDataCodec: ChannelDuplexHandler {
     }
 }
 
-private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutboundHandler {
+private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutboundHandler, RemovableChannelHandler {
     typealias InboundIn = ByteBuffer
     typealias InboundOut = ByteBuffer
     typealias OutboundIn = ByteBuffer
@@ -834,13 +838,13 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
             guard version == 5, methods.contains(0) else {
                 var response = context.channel.allocator.buffer(capacity: 2)
                 response.writeBytes([5, 255])
-                context.writeAndFlush(response, promise: nil)
+                context.writeAndFlush(wrapOutboundOut(response), promise: nil)
                 context.close(promise: nil)
                 return
             }
             var response = context.channel.allocator.buffer(capacity: 2)
             response.writeBytes([5, 0])
-            context.writeAndFlush(response, promise: nil)
+            context.writeAndFlush(wrapOutboundOut(response), promise: nil)
             state = .request
             process(context: context)
 
@@ -920,8 +924,12 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
         let setupTask = Task {
             defer { connections.removeSetup(setupID) }
             do {
-                let originatorAddress = channel.remoteAddress
-                    ?? (try SocketAddress(ipAddress: "127.0.0.1", port: 0))
+                let originatorAddress: SocketAddress
+                if let remoteAddress = channel.remoteAddress {
+                    originatorAddress = remoteAddress
+                } else {
+                    originatorAddress = try SocketAddress(ipAddress: "127.0.0.1", port: 0)
+                }
                 let remoteChannel = try await client.createDirectTCPIPChannel(
                     using: SSHChannelType.DirectTCPIP(
                         targetHost: request.host,
@@ -985,7 +993,7 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
         var response = context.channel.allocator.buffer(capacity: 10)
         response.writeBytes([5, code, 0, 1, 0, 0, 0, 0])
         response.writeInteger(UInt16(0))
-        context.writeAndFlush(response, promise: nil)
+        context.writeAndFlush(wrapOutboundOut(response), promise: nil)
     }
 
     private func rejectPendingRequest() {

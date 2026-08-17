@@ -150,7 +150,7 @@ struct PVEView: View {
     private var resourceGroups: [PVEGroup] {
         let order = ["node", "qemu", "lxc", "storage", "sdn"]
         let grouped = Dictionary(grouping: viewModel.resources, by: { $0.type })
-        let known = order.compactMap { type in
+        let known: [PVEGroup] = order.compactMap { type in
             guard let resources = grouped[type], !resources.isEmpty else { return nil }
             return PVEGroup(
                 title: type.uppercased(),
@@ -159,7 +159,7 @@ struct PVEView: View {
                 }
             )
         }
-        let extra = grouped.keys
+        let extra: [PVEGroup] = grouped.keys
             .filter { !order.contains($0) }
             .sorted()
             .compactMap { type in

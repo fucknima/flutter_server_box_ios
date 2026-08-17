@@ -12,7 +12,7 @@ final class SFTPTransferViewModel: ObservableObject {
     private var reservedDestinationURLs: Set<URL> = []
 
     private typealias ProgressHandler = @Sendable (SFTPTransferProgress) -> Void
-    private typealias TransferOperation = @Sendable (ProgressHandler) async throws -> Void
+    private typealias TransferOperation = @Sendable (@escaping ProgressHandler) async throws -> Void
 
     init(
         serverViewModel: ServerListViewModel,

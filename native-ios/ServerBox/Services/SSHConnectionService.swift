@@ -4,6 +4,8 @@ import Foundation
 import NIO
 import NIOSSH
 
+private struct HostKeyRejected: Error {}
+
 enum SSHCredential: Sendable {
     case password(String)
     case privateKey(String, passphrase: String?)
@@ -48,7 +50,7 @@ private final class HostKeyCapture: NIOSSHClientServerAuthenticationDelegate, @u
         if matchesExpectedKey {
             validationCompletePromise.succeed(())
         } else {
-            validationCompletePromise.fail(InvalidHostKey())
+            validationCompletePromise.fail(HostKeyRejected())
         }
     }
 
@@ -181,7 +183,7 @@ actor SSHConnectionService {
                 do {
                     client = try await currentClient.jump(to: settings)
                 } catch {
-                    if error is InvalidHostKey,
+                    if error is HostKeyRejected,
                        let fingerprint = hostKeyCapture.fingerprint(),
                        hop.knownHostKey != nil {
                         throw SSHTransportError.jumpHostMismatch(
@@ -189,7 +191,7 @@ actor SSHConnectionService {
                             fingerprint: fingerprint
                         )
                     }
-                    if error is InvalidHostKey,
+                    if error is HostKeyRejected,
                        let fingerprint = hostKeyCapture.fingerprint() {
                         throw SSHTransportError.jumpHostFingerprintRequired(
                             serverID: hop.server.id,
@@ -218,12 +220,12 @@ actor SSHConnectionService {
                 do {
                     client = try await currentClient.jump(to: settings)
                 } catch {
-                    if error is InvalidHostKey,
+                    if error is HostKeyRejected,
                        let fingerprint = hostKeyCapture.fingerprint(),
                        knownHostKey != nil {
                         throw SSHTransportError.hostKeyMismatch(fingerprint)
                     }
-                    if error is InvalidHostKey,
+                    if error is HostKeyRejected,
                        let fingerprint = hostKeyCapture.fingerprint() {
                         throw SSHTransportError.hostKeyFingerprintRequired(fingerprint)
                     }
@@ -648,7 +650,7 @@ actor SSHConnectionService {
                     attributes.permissions = permissions
                     try await sftp.setAttributes(at: temporaryRemotePath, to: attributes)
                 }
-                try await replaceRemoteFile(
+                try await self.replaceRemoteFile(
                     sftp,
                     temporaryPath: temporaryRemotePath,
                     destinationPath: remotePath
@@ -682,7 +684,7 @@ actor SSHConnectionService {
             case .remove(let path, let isDirectory, let recursive):
                 if isDirectory {
                     if recursive {
-                        try await removeRecursively(sftp, at: path)
+                        try await self.removeRecursively(sftp, at: path)
                     } else {
                         try await sftp.rmdir(at: path)
                     }
@@ -701,7 +703,7 @@ actor SSHConnectionService {
                 guard data.count <= 1_048_576 else {
                     throw SFTPTransportError.fileTooLarge
                 }
-                let temporaryPath = temporaryUploadPath(for: path)
+                let temporaryPath = self.temporaryUploadPath(for: path)
                 let existingAttributes = try? await sftp.getAttributes(at: path)
                 do {
                     try await sftp.withFile(
@@ -718,7 +720,7 @@ actor SSHConnectionService {
                         attributes.permissions = permissions
                         try await sftp.setAttributes(at: temporaryPath, to: attributes)
                     }
-                    try await replaceRemoteFile(
+                    try await self.replaceRemoteFile(
                         sftp,
                         temporaryPath: temporaryPath,
                         destinationPath: path
@@ -1069,7 +1071,7 @@ actor SSHConnectionService {
                 allowUnverifiedHostKey ? hostKeyCapture.openSSHKey() : nil
             )
         } catch {
-            if error is InvalidHostKey,
+            if error is HostKeyRejected,
                let fingerprint = hostKeyCapture.fingerprint(),
                knownHostKey != nil {
                 if isJumpHost {
@@ -1080,7 +1082,7 @@ actor SSHConnectionService {
                 }
                 throw SSHTransportError.hostKeyMismatch(fingerprint)
             }
-            if error is InvalidHostKey,
+            if error is HostKeyRejected,
                let fingerprint = hostKeyCapture.fingerprint() {
                 if isJumpHost {
                     throw SSHTransportError.jumpHostFingerprintRequired(
@@ -1177,7 +1179,7 @@ actor SSHConnectionService {
         return destinationURL
     }
 
-    private func temporaryUploadPath(for remotePath: String) -> String {
+    private nonisolated func temporaryUploadPath(for remotePath: String) -> String {
         let components = remotePath.split(separator: "/")
         let fileName = components.last.map(String.init) ?? "upload"
         let directory = components.dropLast().isEmpty
@@ -1187,7 +1189,7 @@ actor SSHConnectionService {
         return directory == "/" ? "/\(temporaryName)" : "\(directory)/\(temporaryName)"
     }
 
-    private func removeRecursively(_ sftp: SFTPClient, at path: String) async throws {
+    private nonisolated func removeRecursively(_ sftp: SFTPClient, at path: String) async throws {
         let entries = try await sftp.listDirectory(atPath: path)
         for component in entries.flatMap({ $0.components }) {
             guard component.filename != ".", component.filename != ".." else { continue }
@@ -1206,7 +1208,7 @@ actor SSHConnectionService {
         try await sftp.rmdir(at: path)
     }
 
-    private func replaceRemoteFile(
+    private nonisolated func replaceRemoteFile(
         _ sftp: SFTPClient,
         temporaryPath: String,
         destinationPath: String
