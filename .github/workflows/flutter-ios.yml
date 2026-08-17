@@ -20,6 +20,9 @@ on:
 permissions:
   contents: read
 
+env:
+  FLUTTER_VERSION: "3.47.0"
+
 jobs:
   build:
     name: Unsigned iOS build
@@ -29,18 +32,33 @@ jobs:
         uses: actions/checkout@v4
         with:
           submodules: recursive
+          persist-credentials: false
+          fetch-depth: 0
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: stable
+          flutter-version: ${{ env.FLUTTER_VERSION }}
           cache: true
 
-      - name: Resolve packages
-        run: flutter pub get
+      - name: Resolve build number
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          build="$(sed -n -E 's/.*static const int build = ([0-9]+);/\1/p' lib/data/res/build_data.dart | head -n 1)"
+          if [[ -z "$build" ]]; then
+            echo "BuildData.build not found in lib/data/res/build_data.dart"
+            exit 1
+          fi
+
+          echo "BUILD_NUMBER=$build" >> "$GITHUB_ENV"
 
       - name: Build for iPhoneOS
         run: >-
           flutter build ios
           --release
           --no-codesign
+          --build-number="${BUILD_NUMBER}"
+          --build-name="1.0.${BUILD_NUMBER}"
