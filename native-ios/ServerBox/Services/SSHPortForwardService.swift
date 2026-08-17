@@ -922,7 +922,7 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
         let client = client
         let setupID = UUID()
         let setupTask = Task {
-            defer { connections.removeSetup(setupID) }
+            defer { self.connections.removeSetup(setupID) }
             do {
                 let originatorAddress: SocketAddress
                 if let remoteAddress = channel.remoteAddress {
@@ -937,7 +937,7 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
                         originatorAddress: originatorAddress
                     )
                 ) { remoteChannel in
-                    guard connections.insert(remoteChannel) else {
+                    guard self.connections.insert(remoteChannel) else {
                         remoteChannel.close(promise: nil)
                         return remoteChannel.eventLoop.makeFailedFuture(
                             ChannelError.ioOnClosedChannel
@@ -947,7 +947,7 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
                         PortForwardByteBufferHandler(peer: channel)
                     )
                 }
-                guard connections.insert(channel) else {
+                guard self.connections.insert(channel) else {
                     remoteChannel.close(promise: nil)
                     channel.close(promise: nil)
                     return
