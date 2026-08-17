@@ -63,15 +63,15 @@ targets:
       - path: StatusWidget
         excludes:
           - "*.entitlements"
+          - Info.plist
       - path: Shared
     entitlements:
       path: StatusWidget/StatusWidget.entitlements
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: tech.lolli.serverbox.native.widget
-        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_FILE: StatusWidget/Info.plist
         INFOPLIST_KEY_CFBundleDisplayName: ServerBox Status
-        INFOPLIST_KEY_NSExtensionPointIdentifier: com.apple.widgetkit-extension
         SWIFT_VERSION: "5.9"
       configs:
         Debug:
