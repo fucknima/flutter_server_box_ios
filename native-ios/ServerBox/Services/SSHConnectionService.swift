@@ -1303,7 +1303,8 @@ enum RemoteProcessParser {
             whereSeparator: { $0 == " " || $0 == "\t" || $0 == "\n" || $0 == "\r" }
         )
         guard fields.count >= 2 else { return nil }
-        let command = fields.count == 3 ? String(fields[2]) : String(fields[1])
+        let command = (fields.count == 3 ? String(fields[2]) : String(fields[1]))
+            .trimmingCharacters(in: .whitespacesAndNewlines)
         return (user: String(fields[0]), command: command)
     }
 
