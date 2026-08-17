@@ -389,7 +389,7 @@ actor SSHPortForwardService {
                                     ChannelError.ioOnClosedChannel
                                 )
                             }
-                            remoteChannel.pipeline.addHandler(
+                            return remoteChannel.pipeline.addHandler(
                                 PortForwardByteBufferHandler(peer: channel)
                             )
                         }
@@ -428,7 +428,7 @@ actor SSHPortForwardService {
         try await ServerBootstrap(group: MultiThreadedEventLoopGroup.singleton)
             .serverChannelOption(.socketOption(.so_reuseaddr), value: 1)
             .childChannelInitializer { channel in
-                channel.pipeline.addHandler(
+                return channel.pipeline.addHandler(
                     PortForwardSOCKS5Handler(
                         client: client,
                         connections: connections
@@ -466,7 +466,7 @@ actor SSHPortForwardService {
                                         ChannelError.ioOnClosedChannel
                                     )
                                 }
-                                localChannel.pipeline.addHandler(
+                                return localChannel.pipeline.addHandler(
                                     PortForwardByteBufferHandler(peer: channel)
                                 )
                             }
@@ -482,7 +482,7 @@ actor SSHPortForwardService {
                                         ChannelError.ioOnClosedChannel
                                     )
                                 }
-                                channel.pipeline.addHandler(
+                                return channel.pipeline.addHandler(
                                     PortForwardSSHDataCodec(peer: localChannel)
                                 )
                             }
@@ -943,7 +943,7 @@ private final class PortForwardSOCKS5Handler: ChannelInboundHandler, ChannelOutb
                             ChannelError.ioOnClosedChannel
                         )
                     }
-                    remoteChannel.pipeline.addHandler(
+                    return remoteChannel.pipeline.addHandler(
                         PortForwardByteBufferHandler(peer: channel)
                     )
                 }

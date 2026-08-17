@@ -216,13 +216,15 @@ private struct PrivateKeyEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Private key") {
+                Section {
                     TextField("Name", text: $name)
                     TextEditor(text: $key)
                         .font(.system(.footnote, design: .monospaced))
                         .frame(minHeight: 180)
                     SecureField("Passphrase (optional)", text: $passphrase)
                     Button("Import from file") { showingImporter = true }
+                } header: {
+                    Text("Private key")
                 } footer: {
                     Text("The key and passphrase are stored in the iOS Keychain.")
                 }
