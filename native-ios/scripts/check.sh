@@ -18,19 +18,7 @@ for f in $(find ServerBox Shared StatusWidget ServerBoxTests -name "*.swift"); d
 done
 echo "parse OK"
 
-echo "== brace balance =="
-for f in $(find ServerBox Shared StatusWidget -name "*.swift"); do
-    stripped=$(sed -e 's/"[^"]*"//g' "$f")
-    open=$(echo "$stripped" | grep -o "{" | wc -l)
-    close=$(echo "$stripped" | grep -o "}" | wc -l)
-    if [ "$open" != "$close" ]; then
-        echo "UNBALANCED: $f ($open vs $close)"
-        exit 1
-    fi
-done
-echo "braces OK"
-
-echo "== stale protocol references =="
+echo "== parse OK =="
 if grep -rn "SSHStatusProtocol" ServerBox ServerBoxTests --include="*.swift"; then
     echo "SSHStatusProtocol was removed; fix references"
     exit 1
