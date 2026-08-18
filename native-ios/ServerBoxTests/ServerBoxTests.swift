@@ -131,22 +131,53 @@ struct ServerBoxTests {
         SrvBoxSep.b64.aG9zdA==
         SrvBoxData.server-one
         SrvBoxSep.b64.Y3B1
-        SrvBoxData.31.5%
+        SrvBoxData.cpu  21328136 489 1585090 285720255 14996 0 208206 0 0 0
         SrvBoxSep.b64.bWVtb3J5
-        SrvBoxData.1.3G / 4.0G
-        SrvBoxSep.b64.ZGlzaw==
-        SrvBoxData.7.1G / 30.0G
-        SrvBoxSep.b64.bmV0d29yaw==
-        SrvBoxData.1.2M / 3.4M
+        SrvBoxData.MemTotal: 4013876 kB
+        SrvBoxData.MemFree: 404204 kB
+        SrvBoxData.MemAvailable: 1795876 kB
+        SrvBoxSep.b64.bmV0
+        SrvBoxData.eth0: 100 200 0 0 0 0 0 0 0 300 400 0 0 0 0 0
         """
 
-        let status = try SSHStatusProtocol.parse(raw, fallbackName: "fallback")
+        let sections = SrvBoxScript.parseScriptOutput(raw)
 
-        #expect(status.name == "server-one")
-        #expect(status.cpu == "31.5%")
-        #expect(status.memory == "1.3G / 4.0G")
-        #expect(status.disk == "7.1G / 30.0G")
-        #expect(status.network == "1.2M / 3.4M")
+        #expect(sections["host"] == "server-one")
+        #expect(sections["cpu"]?.hasPrefix("cpu") == true)
+        #expect(sections["mem"]?.contains("MemTotal") == true)
+        #expect(sections["net"]?.contains("eth0") == true)
+    }
+
+    @Test
+    func snippetFormatParsesVariablesAndControls() {
+        let segments = SnippetFormat.parse("echo ${host}${ctrl+c}${sleep 2}${enter 3}tail")
+
+        #expect(segments.count == 5)
+        #expect(segments[0] == .text("echo "))
+        #expect(segments[1] == .text("${host}"))
+        #expect(segments[2] == .control(character: "c", alt: false))
+        #expect(segments[3] == .sleep(seconds: 2))
+        #expect(segments[4] == .enter(times: 3))
+    }
+
+    @Test
+    func snippetFormatReplacesVariables() {
+        let replaced = SnippetFormat.replaceVariables(
+            "echo ${host}:${port} ${user}",
+            host: "example.com",
+            port: 22,
+            username: "root",
+            serverID: UUID(),
+            name: "Test"
+        )
+
+        #expect(replaced == "echo example.com:22 root")
+    }
+
+    @Test
+    func snippetControlString() {
+        #expect(SnippetFormat.controlString(character: "c", alt: false) == "\u{3}")
+        #expect(SnippetFormat.controlString(character: "a", alt: true) == "\u{1B}a")
     }
 
     @Test
