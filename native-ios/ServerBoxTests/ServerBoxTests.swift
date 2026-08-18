@@ -144,7 +144,7 @@ struct ServerBoxTests {
 
         #expect(sections["host"] == "server-one")
         #expect(sections["cpu"]?.hasPrefix("cpu") == true)
-        #expect(sections["mem"]?.contains("MemTotal") == true)
+        #expect(sections["memory"]?.contains("MemTotal") == true)
         #expect(sections["net"]?.contains("eth0") == true)
     }
 
