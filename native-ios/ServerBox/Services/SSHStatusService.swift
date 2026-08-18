@@ -3,153 +3,175 @@ import Foundation
 struct SSHStatusService: Sendable {
     static let live = SSHStatusService()
 
+    private let lock = NSLock()
+    private var installedLocations: [UUID: SrvBoxScript.ScriptLocation] = [:]
+    private var cpuSamples: [UUID: [UInt64]] = [:]
+    private var networkSamples: [UUID: LinuxStatusParser.NetworkSample] = [:]
+    private var networkTimes: [UUID: UInt64] = [:]
+
     func fetchStatus(for server: ServerConfiguration) async throws -> ServerStatus {
-        let raw = try await SSHConnectionService.live.execute(
-            SSHStatusProtocol.command(customCommands: server.customCommands),
-            on: server.id
-        )
-        return try SSHStatusProtocol.parse(
-            raw,
-            fallbackName: server.name,
-            customCommandNames: Array(server.customCommands.keys)
-        )
-    }
-}
+        let location = try await ensureScript(for: server)
 
-enum SSHStatusProtocol {
-    static let separator = "SrvBoxSep."
-    static let dataPrefix = "SrvBoxData."
-
-    private static let commands: [(String, String)] = [
-        ("host", "hostname 2>/dev/null || cat /etc/hostname"),        ("cpu", #"""
-        case "$(uname -s 2>/dev/null)" in
-          Darwin|FreeBSD|OpenBSD|NetBSD)
-            top -l 1 2>/dev/null | awk -F'[:,%]' '/CPU usage/ {gsub(/ /,"",$2); print $2 "%"; exit}'
-            ;;
-          *)
-            awk '/^cpu / { total=$2+$3+$4+$5+$6+$7+$8; idle=$5+$6; if (total > 0) printf "%.1f%%", (total-idle)*100/total }' /proc/stat
-            ;;
-        esac
-        """#),
-        ("memory", #"""
-        case "$(uname -s 2>/dev/null)" in
-          Darwin|FreeBSD|OpenBSD|NetBSD)
-            top -l 1 2>/dev/null | awk '/PhysMem/ {print $2 " / " $6; exit}'
-            ;;
-          *)
-            awk '/MemTotal:/ {total=$2} /MemAvailable:/ {available=$2} END {if (total > 0) printf "%.1fG / %.1fG", (total-available)/1024/1024, total/1024/1024}' /proc/meminfo
-            ;;
-        esac
-        """#),
-        ("disk", "df -h / 2>/dev/null | awk 'NR==2 {print $3 \" / \" $2; exit}'"),
-        ("network", #"""
-        case "$(uname -s 2>/dev/null)" in
-          Darwin|FreeBSD|OpenBSD|NetBSD)
-            netstat -ibn 2>/dev/null | awk 'NR>1 && $1 != "Name" {rx += $7; tx += $10} END {printf "%.1fM / %.1fM", rx/1048576, tx/1048576}'
-            ;;
-          *)
-            awk 'NR>2 && $0 ~ /:/ {gsub(":", "", $1); rx += $2; tx += $10} END {printf "%.1fM / %.1fM", rx/1048576, tx/1048576}' /proc/net/dev
-            ;;
-        esac
-        """#),
-        ("dist", "cat /etc/*-release 2>/dev/null | grep ^PRETTY_NAME"),
-    ]
-
-    static func command(customCommands: [String: String] = [:]) -> String {
-        let custom = customCommands.map { (name: $0.key, command: $0.value) }
-        return (commands + custom)
-            .map { framedCommand(name: $0.0, command: $0.1) }
-            .joined(separator: "\n")
+        do {
+            let raw = try await SSHConnectionService.live.execute(
+                SrvBoxScript.execCommand("SbStatus", at: location, flag: "s"),
+                on: server.id,
+                maxResponseSize: 8 * 1024 * 1024
+            )
+            return try parse(raw, for: server)
+        } catch {
+            if let transportError = error as? SSHTransportError,
+               case .commandFailed = transportError {
+                let reinstalled = try await installScript(for: server)
+                let raw = try await SSHConnectionService.live.execute(
+                    SrvBoxScript.execCommand("SbStatus", at: reinstalled, flag: "s"),
+                    on: server.id,
+                    maxResponseSize: 8 * 1024 * 1024
+                )
+                return try parse(raw, for: server)
+            }
+            throw error
+        }
     }
 
-    static func parse(
-        _ raw: String,
-        fallbackName: String,
-        customCommandNames: [String] = []
-    ) throws -> ServerStatus {
-        let sections = parseSections(raw)
+    func resetScript(for server: ServerConfiguration) {
+        lock.lock()
+        installedLocations.removeValue(forKey: server.id)
+        lock.unlock()
+    }
+
+    private func parse(_ raw: String, for server: ServerConfiguration) throws -> ServerStatus {
+        let sections = SrvBoxScript.parseScriptOutput(raw)
         guard !sections.isEmpty else {
             throw SSHStatusError.invalidOutput
         }
 
-        func value(_ name: String) -> String {
-            sections[name]?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        }
-
-        return ServerStatus(
-            name: value("host").isEmpty ? fallbackName : value("host"),
-            cpu: value("cpu"),
-            memory: value("memory"),
-            disk: value("disk"),
-            network: value("network"),
-            dist: Dist.detect(from: value("dist")) ?? "",
-            customCmds: sections.filter { customCommandNames.contains($0.key) }
+        var status = LinuxStatusParser.parse(
+            sections: sections,
+            fallbackName: server.name
         )
+
+        parseCpu(sections, serverID: server.id, into: &status)
+        status.network = parseNetwork(sections, serverID: server.id)
+        status.customCmds = parseCustomCommands(
+            sections,
+            names: Array(server.customCommands.keys)
+        )
+        return status
     }
 
-    private static func framedCommand(name: String, command: String) -> String {
-        let marker = marker(for: name)
-        return """
-        printf '%s\\n' '\(marker)'
-        { \(command); printf '\\n'; } 2>/dev/null | sed 's/^/\(dataPrefix)/'; true
-        """
-    }
+    private func parseCpu(
+        _ sections: [String: String],
+        serverID: UUID,
+        into status: inout ServerStatus
+    ) {
+        guard let raw = sections["cpu"] else { return }
+        let previous: [UInt64]?
+        lock.lock()
+        previous = cpuSamples[serverID]
+        lock.unlock()
 
-    private static func marker(for name: String) -> String {
-        let encoded = Data(name.utf8)
-            .base64EncodedString()
-            .replacingOccurrences(of: "+", with: "-")
-            .replacingOccurrences(of: "/", with: "_")
-        return "\(separator)b64.\(encoded)"
-    }
-
-    private static func parseSections(_ raw: String) -> [String: String] {
-        var result: [String: String] = [:]
-        var currentName: String?
-        var buffer: [String] = []
-
-        func flush() {
-            guard let currentName else { return }
-            result[currentName] = buffer.joined(separator: "\n")
-            buffer.removeAll(keepingCapacity: true)
+        guard let parsed = LinuxStatusParser.parseCores(raw, previous: previous) else {
+            return
         }
+        lock.lock()
+        cpuSamples[serverID] = parsed.sample
+        lock.unlock()
+        status.cpu = String(format: "%.1f%%", parsed.overall)
+        status.cpuCores = parsed.cores
+    }
 
-        for rawLine in raw.split(separator: "\n", omittingEmptySubsequences: false) {
-            let line = String(rawLine).hasSuffix("\r")
-                ? String(String(rawLine).dropLast())
-                : String(rawLine)
+    private func parseNetwork(_ sections: [String: String], serverID: UUID) -> String {
+        guard let raw = sections["net"] else { return "" }
+        let time = UInt64(sections["time"] ?? "") ?? 0
+        let previous: LinuxStatusParser.NetworkSample?
+        let previousTime: UInt64?
+        lock.lock()
+        previous = networkSamples[serverID]
+        previousTime = networkTimes[serverID]
+        lock.unlock()
 
-            if let name = parseMarker(line) {
-                flush()
-                currentName = name
-            } else if currentName != nil {
-                if line.hasPrefix(dataPrefix) {
-                    buffer.append(String(line.dropFirst(dataPrefix.count)))
-                } else {
-                    buffer.append(line)
-                }
+        guard let speed = LinuxStatusParser.parseNetworkSpeed(
+            raw,
+            previous: previous,
+            time: time,
+            previousTime: previousTime
+        ) else {
+            return ""
+        }
+        lock.lock()
+        networkSamples[serverID] = LinuxStatusParser.NetworkSample(
+            rx: speed.rxTotal,
+            tx: speed.txTotal
+        )
+        networkTimes[serverID] = time
+        lock.unlock()
+        return "\(LinuxStatusParser.humanSpeed(speed.rxSpeed)) / \(LinuxStatusParser.humanSpeed(speed.txSpeed))"
+    }
+
+    private func parseCustomCommands(
+        _ sections: [String: String],
+        names: [String]
+    ) -> [String: String] {
+        var result: [String: String] = [:]
+        for name in names {
+            let value = sections[SrvBoxScript.customResultKey(name)] ?? ""
+            if !value.isEmpty {
+                result[name] = value
             }
         }
-        flush()
         return result
     }
 
-    private static func parseMarker(_ line: String) -> String? {
-        guard line.hasPrefix("\(separator)b64.") else { return nil }
-        var encoded = String(line.dropFirst("\(separator)b64.".count))
-            .replacingOccurrences(of: "-", with: "+")
-            .replacingOccurrences(of: "_", with: "/")
-        let padding = (4 - encoded.count % 4) % 4
-        encoded += String(repeating: "=", count: padding)
-        guard let data = Data(base64Encoded: encoded) else { return nil }
-        return String(data: data, encoding: .utf8)
+    private func ensureScript(for server: ServerConfiguration) async throws -> SrvBoxScript.ScriptLocation {
+        lock.lock()
+        let installed = installedLocations[server.id]
+        lock.unlock()
+        if let installed {
+            return installed
+        }
+        return try await installScript(for: server)
+    }
+
+    private func installScript(
+        for server: ServerConfiguration
+    ) async throws -> SrvBoxScript.ScriptLocation {
+        let script = SrvBoxScript.buildScript(
+            customCmds: server.customCommands,
+            disabledCmdTypes: Array(server.disabledStatusTypes)
+        )
+
+        let locations: [SrvBoxScript.ScriptLocation] = [.tmp, .home]
+        var lastError: Error?
+        for location in locations {
+            do {
+                try await SSHConnectionService.live.writeScriptFile(
+                    serverID: server.id,
+                    content: script,
+                    location: location
+                )
+                lock.lock()
+                installedLocations[server.id] = location
+                lock.unlock()
+                return location
+            } catch {
+                lastError = error
+            }
+        }
+        throw lastError ?? SSHStatusError.scriptInstallFailed
     }
 }
 
 enum SSHStatusError: LocalizedError, Equatable, Sendable {
     case invalidOutput
+    case scriptInstallFailed
 
     var errorDescription: String? {
-        "服务器返回了无法读取的 SSH 状态响应。"
+        switch self {
+        case .invalidOutput:
+            return "服务器返回了无法识别的状态数据。"
+        case .scriptInstallFailed:
+            return "无法在服务器上安装监控脚本。"
+        }
     }
 }

@@ -8,6 +8,13 @@ struct ServerStatus: Codable, Equatable, Sendable {
     var network: String
     var dist: String
     var customCmds: [String: String]
+    var cpuCores: [Double]
+    var cpuBrand: String
+    var disks: [DiskMetric]
+    var temps: [String: Double]
+    var uptime: String
+    var swap: String
+    var sysName: String
 
     enum CodingKeys: String, CodingKey {
         case name
@@ -17,6 +24,13 @@ struct ServerStatus: Codable, Equatable, Sendable {
         case network = "net"
         case dist
         case customCmds
+        case cpuCores
+        case cpuBrand
+        case disks
+        case temps
+        case uptime
+        case swap
+        case sysName
     }
 
     init(
@@ -26,7 +40,14 @@ struct ServerStatus: Codable, Equatable, Sendable {
         disk: String,
         network: String,
         dist: String = "",
-        customCmds: [String: String] = [:]
+        customCmds: [String: String] = [:],
+        cpuCores: [Double] = [],
+        cpuBrand: String = "",
+        disks: [DiskMetric] = [],
+        temps: [String: Double] = [:],
+        uptime: String = "",
+        swap: String = "",
+        sysName: String = ""
     ) {
         self.name = name
         self.cpu = cpu
@@ -35,6 +56,13 @@ struct ServerStatus: Codable, Equatable, Sendable {
         self.network = network
         self.dist = dist
         self.customCmds = customCmds
+        self.cpuCores = cpuCores
+        self.cpuBrand = cpuBrand
+        self.disks = disks
+        self.temps = temps
+        self.uptime = uptime
+        self.swap = swap
+        self.sysName = sysName
     }
 
     init(from decoder: Decoder) throws {
@@ -46,6 +74,13 @@ struct ServerStatus: Codable, Equatable, Sendable {
         network = container.decodeFlexibleString(forKey: .network)
         dist = container.decodeFlexibleString(forKey: .dist)
         customCmds = (try? container.decode([String: String].self, forKey: .customCmds)) ?? [:]
+        cpuCores = (try? container.decode([Double].self, forKey: .cpuCores)) ?? []
+        cpuBrand = container.decodeFlexibleString(forKey: .cpuBrand)
+        disks = (try? container.decode([DiskMetric].self, forKey: .disks)) ?? []
+        temps = (try? container.decode([String: Double].self, forKey: .temps)) ?? [:]
+        uptime = container.decodeFlexibleString(forKey: .uptime)
+        swap = container.decodeFlexibleString(forKey: .swap)
+        sysName = container.decodeFlexibleString(forKey: .sysName)
     }
 
     var cpuFraction: Double? {
@@ -58,6 +93,10 @@ struct ServerStatus: Codable, Equatable, Sendable {
 
     var diskFraction: Double? {
         Self.ratioFraction(disk)
+    }
+
+    var swapFraction: Double? {
+        Self.ratioFraction(swap)
     }
 
     private static func percentFraction(_ value: String) -> Double? {
@@ -114,6 +153,35 @@ struct ServerStatus: Codable, Equatable, Sendable {
         default: multiplier = 1
         }
         return number * multiplier
+    }
+}
+
+struct DiskMetric: Codable, Equatable, Sendable {
+    var name: String
+    var filesystem: String
+    var mountPath: String
+    var used: UInt64
+    var total: UInt64
+    var usedPercent: Double
+
+    init(
+        name: String = "",
+        filesystem: String = "",
+        mountPath: String = "",
+        used: UInt64 = 0,
+        total: UInt64 = 0,
+        usedPercent: Double = 0
+    ) {
+        self.name = name
+        self.filesystem = filesystem
+        self.mountPath = mountPath
+        self.used = used
+        self.total = total
+        self.usedPercent = usedPercent
+    }
+
+    var available: UInt64 {
+        total > used ? total - used : 0
     }
 }
 

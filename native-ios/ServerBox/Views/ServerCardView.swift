@@ -233,6 +233,26 @@ struct ServerCardView: View {
         return URL(string: urlString)
     }
 
+    private func statusSummary(_ status: ServerStatus) -> String? {
+        var items: [String] = []
+        let temperature: String? = {
+            guard !status.temps.isEmpty else { return nil }
+            let preferred = ["x86_pkg_temp", "coretemp", "zenpower", "cpu_thermal", "soc"]
+            for key in preferred where status.temps[key] != nil {
+                return String(format: "%.1f°C", status.temps[key]!)
+            }
+            let first = status.temps.values.first
+            return first.map { String(format: "%.1f°C", $0) }
+        }()
+        if let temperature {
+            items.append(temperature)
+        }
+        if !status.uptime.isEmpty {
+            items.append(status.uptime)
+        }
+        return items.isEmpty ? nil : items.joined(separator: " | ")
+    }
+
     private var connectionSummary: some View {
         HStack(spacing: DesignTokens.spaceS) {
             Image(systemName: connectionIcon)
@@ -273,6 +293,12 @@ struct ServerCardView: View {
             }
         case .loaded(let status):
             VStack(spacing: DesignTokens.spaceS) {
+                if let summary = statusSummary(status) {
+                    Text(summary)
+                        .font(.system(.caption, design: .monospaced))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .trailing)
+                }
                 StatusMetricRow(
                     title: "CPU",
                     value: status.cpu,

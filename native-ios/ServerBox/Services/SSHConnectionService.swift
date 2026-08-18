@@ -752,6 +752,65 @@ actor SSHConnectionService {
         }
     }
 
+    func writeScriptFile(
+        serverID: UUID,
+        content: String,
+        location: SrvBoxScript.ScriptLocation
+    ) async throws {
+        guard let client = clients[serverID], client.isConnected else {
+            throw SSHTransportError.notConnected
+        }
+        try await client.withSFTP { sftp in
+            let directory = location.directory
+            let resolvedDirectory: String
+            if directory.hasPrefix("~") {
+                let home = try await self.execute(
+                    "echo $HOME",
+                    on: serverID,
+                    maxResponseSize: 8192
+                )
+                let trimmed = home.trimmingCharacters(in: .whitespacesAndNewlines)
+                resolvedDirectory = trimmed.isEmpty
+                    ? "/root" + String(directory.dropFirst(2))
+                    : trimmed + String(directory.dropFirst(2))
+            } else {
+                resolvedDirectory = directory
+            }
+            try await Self.makeDirectoryTree(
+                sftp: sftp,
+                path: resolvedDirectory
+            )
+
+            let path = "\(resolvedDirectory)/\(SrvBoxScript.scriptFileName)"
+            let data = Data(content.utf8)
+            try await sftp.withFile(
+                filePath: path,
+                flags: [.write, .create, .forceCreate, .truncate]
+            ) { file in
+                var buffer = ByteBufferAllocator().buffer(capacity: data.count)
+                buffer.writeBytes(data)
+                try await file.write(buffer, at: 0)
+            }
+            var attributes = SFTPFileAttributes()
+            attributes.permissions = 0o755
+            try await sftp.setAttributes(at: path, to: attributes)
+        }
+    }
+
+    private static func makeDirectoryTree(
+        sftp: SFTPClient,
+        path: String
+    ) async throws {
+        var current = ""
+        for component in path.split(separator: "/") where !component.isEmpty {
+            current += "/\(component)"
+            if (try? await sftp.getAttributes(at: current)) != nil {
+                continue
+            }
+            try await sftp.createDirectory(atPath: current)
+        }
+    }
+
     func openTerminal(
         serverID: UUID,
         columns: Int = 100,

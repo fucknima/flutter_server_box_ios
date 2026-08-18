@@ -309,10 +309,46 @@ struct ServerDetailView: View {
     private func statusMetrics(_ status: ServerStatus) -> some View {
         VStack(spacing: DesignTokens.spaceM) {
             DetailMetricRow(title: "CPU", value: status.cpu, fraction: status.cpuFraction, image: "cpu")
+            if !status.cpuCores.isEmpty {
+                ForEach(Array(status.cpuCores.enumerated()), id: \.offset) { index, value in
+                    DetailMetricRow(
+                        title: "核心 \(index + 1)",
+                        value: String(format: "%.1f%%", value),
+                        fraction: min(max(value / 100, 0), 1),
+                        image: "cpu"
+                    )
+                }
+            }
             DetailMetricRow(title: "内存", value: status.memory, fraction: status.memoryFraction, image: "memorychip")
-            DetailMetricRow(title: "磁盘", value: status.disk, fraction: status.diskFraction, image: "internaldrive")
+            if !status.swap.isEmpty {
+                DetailMetricRow(title: "交换", value: status.swap, fraction: status.swapFraction, image: "memorychip")
+            }
+            if !status.disks.isEmpty {
+                ForEach(Array(status.disks.enumerated()), id: \.offset) { index, disk in
+                    DetailMetricRow(
+                        title: disk.name,
+                        value: "\(LinuxStatusParser.humanBytes(disk.used)) / \(LinuxStatusParser.humanBytes(disk.total))",
+                        fraction: min(max(disk.usedPercent / 100, 0), 1),
+                        image: "internaldrive"
+                    )
+                }
+            }
             DetailMetricRow(title: "网络", value: status.network, fraction: nil, image: "network")
+            if !status.temps.isEmpty {
+                ForEach(status.temps.sorted(by: { $0.key < $1.key }), id: \.key) { name, value in
+                    DetailMetricRow(
+                        title: name,
+                        value: String(format: "%.1f°C", value),
+                        fraction: nil,
+                        image: "thermometer"
+                    )
+                }
+            }
+            if !status.uptime.isEmpty {
+                DetailMetricRow(title: "运行时间", value: status.uptime, fraction: nil, image: "clock")
+            }
         }
+    }
     }
 
     private var authenticationTitle: LocalizedStringKey {
