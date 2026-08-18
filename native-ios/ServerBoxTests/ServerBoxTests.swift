@@ -132,7 +132,7 @@ struct ServerBoxTests {
         SrvBoxData.server-one
         SrvBoxSep.b64.Y3B1
         SrvBoxData.cpu  21328136 489 1585090 285720255 14996 0 208206 0 0 0
-        SrvBoxSep.b64.bWVtb3J5
+        SrvBoxSep.b64.bW9tb3J5
         SrvBoxData.MemTotal: 4013876 kB
         SrvBoxData.MemFree: 404204 kB
         SrvBoxData.MemAvailable: 1795876 kB
@@ -153,11 +153,11 @@ struct ServerBoxTests {
         let segments = SnippetFormat.parse("echo ${host}${ctrl+c}${sleep 2}${enter 3}tail")
 
         #expect(segments.count == 5)
-        #expect(segments[0] == .text("echo "))
-        #expect(segments[1] == .text("${host}"))
-        #expect(segments[2] == .control(character: "c", alt: false))
-        #expect(segments[3] == .sleep(seconds: 2))
-        #expect(segments[4] == .enter(times: 3))
+        #expect(segments[0] == .text("echo ${host}"))
+        #expect(segments[1] == .control(character: "c", alt: false))
+        #expect(segments[2] == .sleep(seconds: 2))
+        #expect(segments[3] == .enter(times: 3))
+        #expect(segments[4] == .text("tail"))
     }
 
     @Test
@@ -183,14 +183,14 @@ struct ServerBoxTests {
     @Test
     func remoteProcessParserKeepsCommandArguments() {
         let processes = RemoteProcessParser.parse(
-            "42 root 12.5 1.2 bash bash --login\n" +
+            "42 root 12.5 1.2 12345 67890 pts/0 S 00:00:00 - 0 0 bash bash --login\n" +
                 "bad row\n" +
-                "7 user 0.0 0.1 launchd"
+                "7 user 0.0 0.1 1 2 pts/1 R 00:00:01 - 0 0 launchd"
         )
 
         #expect(processes.count == 2)
         #expect(processes.first?.pid == 42)
-        #expect(processes.first?.command == "bash --login")
+        #expect(processes.first?.command == "bash bash --login")
         #expect(processes.last?.command == "launchd")
     }
 
@@ -209,8 +209,8 @@ struct ServerBoxTests {
                 "cron.service loaded inactive dead Scheduler"
         )
         let containers = RemoteContainerParser.parse(
-            "abc123\tweb\tnginx:latest\tUp 2 hours\n" +
-                "def456\tdb\tpostgres\tExited (0) 1 hour ago",
+            "abc123\tUp 2 hours\tweb\tnginx:latest\tproject-a\t/opt/app\n" +
+                "def456\tExited (0) 1 hour ago\tdb\tpostgres\t\t",
             runtime: "docker"
         )
 
