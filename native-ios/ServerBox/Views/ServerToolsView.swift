@@ -179,7 +179,11 @@ struct ServerToolsView: View {
                 Text(viewModel.errorMessage ?? "未知工具错误")
             }
             .sheet(item: Binding(
-                get: { viewModel.inspectedOutput.map { OutputItem($0) } },
+                get: {
+                    viewModel.inspectedOutput.map {
+                        OutputItem(title: $0.title, content: $0.content)
+                    }
+                },
                 set: { if $0 == nil { viewModel.inspectedOutput = nil } }
             )) { item in
                 OutputSheet(title: item.title, content: item.content)
