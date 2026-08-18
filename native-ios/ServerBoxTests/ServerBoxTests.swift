@@ -128,15 +128,15 @@ struct ServerBoxTests {
     @Test
     func sshStatusProtocolParsesFramedSections() throws {
         let raw = """
-        SrvBoxSep.b64.aG9zdA
+        \(SrvBoxScript.cmdSeparator("host"))
         SrvBoxData.server-one
-        SrvBoxSep.b64.Y3B1
+        \(SrvBoxScript.cmdSeparator("cpu"))
         SrvBoxData.cpu  21328136 489 1585090 285720255 14996 0 208206 0 0 0
-        SrvBoxSep.b64.bW1tb3J5
+        \(SrvBoxScript.cmdSeparator("memory"))
         SrvBoxData.MemTotal: 4013876 kB
         SrvBoxData.MemFree: 404204 kB
         SrvBoxData.MemAvailable: 1795876 kB
-        SrvBoxSep.b64.bmV0
+        \(SrvBoxScript.cmdSeparator("net"))
         SrvBoxData.eth0: 100 200 0 0 0 0 0 0 0 300 400 0 0 0 0 0
         """
 
