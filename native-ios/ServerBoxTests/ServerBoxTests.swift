@@ -128,7 +128,7 @@ struct ServerBoxTests {
     @Test
     func sshStatusProtocolParsesFramedSections() throws {
         let raw = """
-        SrvBoxSep.b64.aG9zdA==
+        SrvBoxSep.b64.aG9zdA
         SrvBoxData.server-one
         SrvBoxSep.b64.Y3B1
         SrvBoxData.cpu  21328136 489 1585090 285720255 14996 0 208206 0 0 0

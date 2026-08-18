@@ -36,12 +36,30 @@ enum SrvBoxScript {
         var base64 = encoded
             .replacingOccurrences(of: "-", with: "+")
             .replacingOccurrences(of: "_", with: "/")
-        let padding = (4 - base64.count % 4) % 4
-        if padding > 0 {
-            base64 += String(repeating: "=", count: padding)
+        while base64.hasSuffix("=") {
+            base64 = String(base64.dropLast())
         }
-        guard let data = Data(base64Encoded: base64) else { return nil }
-        return String(data: data, encoding: .utf8)
+        guard !base64.isEmpty else { return nil }
+
+        let alphabet = Array("ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/")
+        var lookup: [Character: Int] = [:]
+        for (index, character) in alphabet.enumerated() {
+            lookup[character] = index
+        }
+
+        var bytes: [UInt8] = []
+        var buffer = 0
+        var bits = 0
+        for character in base64 {
+            guard let value = lookup[character] else { return nil }
+            buffer = (buffer << 6) | value
+            bits += 6
+            if bits >= 8 {
+                bits -= 8
+                bytes.append(UInt8((buffer >> bits) & 0xFF))
+            }
+        }
+        return String(bytes: bytes, encoding: .utf8)
     }
 
     static let unixScriptHeader = #"""
