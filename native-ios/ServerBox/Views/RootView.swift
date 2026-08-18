@@ -126,17 +126,16 @@ struct RootView: View {
                             action: action
                         )
                     },
-                    removeContainer: { container in
+                    removeContainer: { container, force in
                         try await viewModel.removeContainer(
                             container,
-                            on: server
+                            on: server,
+                            force: force
                         )
                     },
-                    containerLogs: { container in
-                        try await viewModel.fetchContainerLogs(
-                            container,
-                            on: server
-                        )
+                    onOpenTerminal: { command in
+                        terminalCommand = command
+                        terminalServer = server
                     }
                 )
             }

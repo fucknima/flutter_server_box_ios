@@ -868,11 +868,13 @@ final class ServerListViewModel: ObservableObject {
 
     func removeContainer(
         _ container: RemoteContainer,
-        on server: ServerConfiguration
+        on server: ServerConfiguration,
+        force: Bool
     ) async throws {
         try await SSHConnectionService.live.removeDockerContainer(
             serverID: server.id,
-            container: container
+            container: container,
+            force: force
         )
     }
 

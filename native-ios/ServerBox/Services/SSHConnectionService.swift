@@ -1020,7 +1020,7 @@ actor SSHConnectionService {
 
     func listSystemServices(serverID: UUID) async throws -> [RemoteSystemService] {
         let raw = try await execute(
-            "systemctl list-units --type=service --all --no-legend --no-pager --plain",
+            "systemctl list-units --type=service,socket,mount,timer --all --no-legend --no-pager --plain",
             on: serverID,
             maxResponseSize: 1024 * 1024
         )
@@ -1035,13 +1035,20 @@ actor SSHConnectionService {
         guard RemoteSystemServiceParser.isSafeUnit(unit) else {
             throw SystemServiceControlError.invalidUnit
         }
-        _ = try await execute("systemctl \(action.rawValue) \(unit)", on: serverID)
+        let command = Self.systemdCommand("\(action.rawValue) \(unit)")
+        _ = try await execute(command, on: serverID)
     }
 
     func listDockerContainers(serverID: UUID) async throws -> [RemoteContainer] {
         let runtime = try await containerRuntime(serverID: serverID)
+        let format: String
+        if runtime == "podman" {
+            format = "{{json .}}\\t{{.Status}}"
+        } else {
+            format = "{{.ID}}\\t{{.Status}}\\t{{.Names}}\\t{{.Image}}\\t{{.Label \\\"com.docker.compose.project\\\"}}\\t{{.Label \\\"com.docker.compose.project.working_dir\\\"}}"
+        }
         let raw = try await execute(
-            "\(runtime) ps -a --format '{{.ID}}\\t{{.Names}}\\t{{.Image}}\\t{{.Status}}'",
+            "\(runtime) ps -a --format '\(format)'",
             on: serverID,
             maxResponseSize: 1024 * 1024
         )
@@ -1056,48 +1063,47 @@ actor SSHConnectionService {
         guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
             throw ContainerControlError.invalidIdentifier
         }
-        _ = try await execute(
-            "\(container.runtime) \(action.rawValue) \(container.identifier)",
-            on: serverID
+        let command = Self.containerCommand(
+            "\(action.rawValue) '\(container.identifier)'",
+            runtime: container.runtime
         )
+        _ = try await execute(command, on: serverID)
     }
 
     func removeDockerContainer(
         serverID: UUID,
-        container: RemoteContainer
+        container: RemoteContainer,
+        force: Bool
     ) async throws {
         guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
             throw ContainerControlError.invalidIdentifier
         }
-        _ = try await execute(
-            "\(container.runtime) rm -f \(container.identifier)",
-            on: serverID
+        let flag = force ? " -f" : ""
+        let command = Self.containerCommand(
+            "rm\(flag) '\(container.identifier)'",
+            runtime: container.runtime
         )
-    }
-
-    func fetchContainerLogs(
-        serverID: UUID,
-        container: RemoteContainer
-    ) async throws -> String {
-        guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
-            throw ContainerControlError.invalidIdentifier
-        }
-        return try await execute(
-            "\(container.runtime) logs --tail 200 \(container.identifier) 2>&1 || true",
-            on: serverID,
-            maxResponseSize: 1024 * 1024
-        )
+        _ = try await execute(command, on: serverID)
     }
 
     func fetchSystemServiceStatus(
         serverID: UUID,
         unit: String
     ) async throws -> String {
-        try await execute(
-            "systemctl status \(unit) --no-pager 2>&1 || true",
+        let command = Self.systemdCommand("status \(unit) --no-pager")
+        return try await execute(
+            "\(command) 2>&1 || true",
             on: serverID,
             maxResponseSize: 1024 * 1024
         )
+    }
+
+    private static func systemdCommand(_ subcommand: String) -> String {
+        "if [ \"$(id -u)\" = 0 ]; then systemctl \(subcommand); else sudo -n systemctl \(subcommand); fi"
+    }
+
+    private static func containerCommand(_ subcommand: String, runtime: String) -> String {
+        "if [ \"$(id -u)\" = 0 ]; then \(runtime) \(subcommand); else sudo -n \(runtime) \(subcommand); fi"
     }
 
     func listPVEResources(serverID: UUID, enabled: Bool) async throws -> [PVEResource] {
@@ -1669,27 +1675,25 @@ enum SystemServiceAction: String, CaseIterable, Sendable {
 enum RemoteSystemServiceParser {
     static func parse(_ raw: String) -> [RemoteSystemService] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
-            let fields = line.split(
-                maxSplits: 4,
-                omittingEmptySubsequences: true,
-                whereSeparator: { $0 == " " || $0 == "\t" }
-            )
-            guard fields.count >= 4,
-                  fields[0].hasSuffix(".service") else {
-                return nil
-            }
+            let tokens = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard tokens.count >= 4 else { return nil }
+            let unit = String(tokens[0])
+            guard unit.contains(".") else { return nil }
 
+            let description = tokens.dropFirst(4)
+                .map(String.init)
+                .joined(separator: " ")
             return RemoteSystemService(
-                unit: String(fields[0]),
-                activeState: String(fields[2]),
-                subState: String(fields[3]),
-                description: fields.count > 4 ? String(fields[4]) : ""
+                unit: unit,
+                activeState: String(tokens[2]),
+                subState: String(tokens[3]),
+                description: description
             )
         }
     }
 
     static func isSafeUnit(_ unit: String) -> Bool {
-        !unit.isEmpty && unit.hasSuffix(".service") && unit.allSatisfy {
+        !unit.isEmpty && unit.contains(".") && unit.allSatisfy {
             $0.isLetter || $0.isNumber || $0 == "." || $0 == "-" || $0 == "_" || $0 == "@"
         }
     }
@@ -1709,9 +1713,41 @@ struct RemoteContainer: Equatable, Identifiable, Sendable {
     let image: String
     let status: String
     let runtime: String
+    let project: String
+    let workingDir: String
 
     var id: String { identifier }
-    var isRunning: Bool { status.lowercased().hasPrefix("up") }
+
+    var isRunning: Bool {
+        let lower = status.lowercased()
+        if lower.hasPrefix("exited") ||
+            lower.hasPrefix("created") ||
+            lower.hasPrefix("paused") ||
+            lower.hasPrefix("restarting") ||
+            lower.hasPrefix("removing") ||
+            lower.hasPrefix("dead") {
+            return false
+        }
+        return lower.hasPrefix("up")
+    }
+
+    init(
+        identifier: String,
+        name: String,
+        image: String,
+        status: String,
+        runtime: String,
+        project: String = "",
+        workingDir: String = ""
+    ) {
+        self.identifier = identifier
+        self.name = name
+        self.image = image
+        self.status = status
+        self.runtime = runtime
+        self.project = project
+        self.workingDir = workingDir
+    }
 }
 
 enum ContainerAction: String, CaseIterable, Sendable {
@@ -1723,14 +1759,38 @@ enum ContainerAction: String, CaseIterable, Sendable {
 enum RemoteContainerParser {
     static func parse(_ raw: String, runtime: String) -> [RemoteContainer] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
-            let fields = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false)
-            guard fields.count == 4, !fields[0].isEmpty else { return nil }
+            let fields = line.split(separator: "\t", maxSplits: 5, omittingEmptySubsequences: false)
+            guard !fields.isEmpty, !fields[0].isEmpty else { return nil }
+
+            if runtime == "podman" {
+                guard let jsonData = fields[0].data(using: .utf8),
+                      let object = try? JSONSerialization.jsonObject(with: jsonData) as? [String: Any] else {
+                    return nil
+                }
+                let identifier = (object["Id"] as? String) ?? (object["ID"] as? String) ?? ""
+                guard !identifier.isEmpty else { return nil }
+                let names = (object["Names"] as? [String]) ?? []
+                let status = fields.count > 1 ? String(fields[1]) : ""
+                return RemoteContainer(
+                    identifier: identifier,
+                    name: names.first?.trimmingCharacters(in: CharacterSet(charactersIn: "/")) ?? "",
+                    image: (object["Image"] as? String) ?? "",
+                    status: status,
+                    runtime: runtime,
+                    project: (object["Project"] as? String) ?? "",
+                    workingDir: (object["WorkDir"] as? String) ?? ""
+                )
+            }
+
+            guard fields.count == 6 else { return nil }
             return RemoteContainer(
                 identifier: String(fields[0]),
-                name: String(fields[1]),
-                image: String(fields[2]),
-                status: String(fields[3]),
-                runtime: runtime
+                name: String(fields[2]),
+                image: String(fields[3]),
+                status: String(fields[1]),
+                runtime: runtime,
+                project: String(fields[4]),
+                workingDir: String(fields[5])
             )
         }
     }
