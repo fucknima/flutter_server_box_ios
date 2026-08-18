@@ -6,16 +6,23 @@ set -e
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
 
+SWIFTC="${SWIFTC:-/opt/swift/usr/bin/swiftc}"
+if [ ! -x "$SWIFTC" ]; then
+    echo "swiftc not found at $SWIFTC (set SWIFTC)"
+    exit 1
+fi
+
 echo "== swiftc -parse =="
 for f in $(find ServerBox Shared StatusWidget ServerBoxTests -name "*.swift"); do
-    swiftc -parse "$f"
+    "$SWIFTC" -parse "$f"
 done
 echo "parse OK"
 
 echo "== brace balance =="
 for f in $(find ServerBox Shared StatusWidget -name "*.swift"); do
-    open=$(grep -o "{" "$f" | wc -l)
-    close=$(grep -o "}" "$f" | wc -l)
+    stripped=$(sed -e 's/"[^"]*"//g' "$f")
+    open=$(echo "$stripped" | grep -o "{" | wc -l)
+    close=$(echo "$stripped" | grep -o "}" | wc -l)
     if [ "$open" != "$close" ]; then
         echo "UNBALANCED: $f ($open vs $close)"
         exit 1
