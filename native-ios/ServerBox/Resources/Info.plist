@@ -27,6 +27,10 @@
 	<true/>
 	<key>NSLocalNetworkUsageDescription</key>
 	<string>ServerBox connects to monitor endpoints on your network.</string>
+	<key>NSBonjourServices</key>
+	<array>
+		<string>_ssh._tcp</string>
+	</array>
 	<key>NSAppTransportSecurity</key>
 	<dict>
 		<key>NSAllowsLocalNetworking</key>

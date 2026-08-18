@@ -721,8 +721,8 @@ actor SSHConnectionService {
                 attributes.permissions = permissions
                 try await sftp.setAttributes(at: path, to: attributes)
             case .writeFile(let path, let content):
-                let data: Data
                 let sourceEncoding = self.fileEncodings[serverID]?[path] ?? .utf8
+                let data: Data
                 if sourceEncoding == SSHConnectionService.gbkEncoding,
                    let gbkData = content.data(using: SSHConnectionService.gbkEncoding) {
                     data = gbkData
@@ -931,7 +931,7 @@ actor SSHConnectionService {
             throw SSHTransportError.notConnected
         }
 
-        return try await client.withSFTP { sftp in
+        let result: (content: String, encoding: String.Encoding) = try await client.withSFTP { sftp in
             try await sftp.withFile(filePath: path, flags: .read) { file in
                 let attributes = try await file.readAttributes()
                 if let size = attributes.size, size > UInt64(maxBytes) {
@@ -954,17 +954,17 @@ actor SSHConnectionService {
                         break
                     }
                 }
-                guard let content = String(data: data, encoding: .utf8) else {
-                    if let gbkContent = String(data: data, encoding: SSHConnectionService.gbkEncoding) {
-                        self.fileEncodings[serverID, default: [:]][path] = SSHConnectionService.gbkEncoding
-                        return gbkContent
-                    }
-                    throw SFTPTransportError.notUTF8File
+                if let content = String(data: data, encoding: .utf8) {
+                    return (content, .utf8)
                 }
-                self.fileEncodings[serverID, default: [:]][path] = .utf8
-                return content
+                if let gbkContent = String(data: data, encoding: SSHConnectionService.gbkEncoding) {
+                    return (gbkContent, SSHConnectionService.gbkEncoding)
+                }
+                throw SFTPTransportError.notUTF8File
             }
         }
+        fileEncodings[serverID, default: [:]][path] = result.encoding
+        return result.content
     }
 
     func homeDirectory(

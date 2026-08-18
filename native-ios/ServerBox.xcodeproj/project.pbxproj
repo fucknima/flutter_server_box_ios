@@ -57,6 +57,7 @@
 		A100000000000000000000D4 /* SSHPortForwardService.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D5 /* SSHPortForwardService.swift */; };
 		A100000000000000000000D6 /* PortForwardViewModel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D7 /* PortForwardViewModel.swift */; };
 		A100000000000000000000D8 /* PortForwardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000D9 /* PortForwardView.swift */; };
+		A100000000000000000000DA /* SSHDiscovery.swift in Sources */ = {isa = PBXBuildFile; fileRef = A100000000000000000000DB /* SSHDiscovery.swift */; };
 		A10000000000000000000052 /* ServerBoxTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A1000000000000000000001F /* ServerBoxTests.swift */; };
 		A10000000000000000000094 /* Citadel in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000091 /* Citadel */; };
 		A10000000000000000000097 /* Crypto in Frameworks */ = {isa = PBXBuildFile; productRef = A10000000000000000000096 /* Crypto */; };
@@ -129,6 +130,7 @@
 		A100000000000000000000D5 /* SSHPortForwardService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHPortForwardService.swift; sourceTree = "<group>"; };
 		A100000000000000000000D7 /* PortForwardViewModel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardViewModel.swift; sourceTree = "<group>"; };
 		A100000000000000000000D9 /* PortForwardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PortForwardView.swift; sourceTree = "<group>"; };
+		A100000000000000000000DB /* SSHDiscovery.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SSHDiscovery.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -216,6 +218,7 @@
 				A100000000000000000000BE /* PrivateKeyStore.swift */,
 				A100000000000000000000D3 /* PortForwardStore.swift */,
 				A100000000000000000000D5 /* SSHPortForwardService.swift */,
+				A100000000000000000000DB /* SSHDiscovery.swift */,
 			);
 			path = Services;
 			sourceTree = "<group>";
@@ -445,6 +448,7 @@
 				A100000000000000000000D4 /* SSHPortForwardService.swift in Sources */,
 				A100000000000000000000D6 /* PortForwardViewModel.swift in Sources */,
 				A100000000000000000000D8 /* PortForwardView.swift in Sources */,
+				A100000000000000000000DA /* SSHDiscovery.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

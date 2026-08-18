@@ -1,6 +1,6 @@
 import Foundation
 
-struct SSHStatusService: Sendable {
+final class SSHStatusService: @unchecked Sendable {
     static let live = SSHStatusService()
 
     private let lock = NSLock()
@@ -8,6 +8,8 @@ struct SSHStatusService: Sendable {
     private var cpuSamples: [UUID: [UInt64]] = [:]
     private var networkSamples: [UUID: LinuxStatusParser.NetworkSample] = [:]
     private var networkTimes: [UUID: UInt64] = [:]
+
+    init() {}
 
     func fetchStatus(for server: ServerConfiguration) async throws -> ServerStatus {
         let location = try await ensureScript(for: server)
