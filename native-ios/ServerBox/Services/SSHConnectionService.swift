@@ -382,12 +382,26 @@ actor SSHConnectionService {
         using client: SSHClient,
         maxResponseSize: Int
     ) async throws -> String {
-        let output = try await client.executeCommand(
-            command,
-            maxResponseSize: maxResponseSize,
-            mergeStreams: true
-        )
-        return String(data: Data(output.readableBytesView), encoding: .utf8) ?? ""
+        do {
+            let output = try await client.executeCommand(
+                command,
+                maxResponseSize: maxResponseSize,
+                mergeStreams: true
+            )
+            return String(data: Data(output.readableBytesView), encoding: .utf8) ?? ""
+        } catch {
+            if error is SSHTransportError {
+                throw error
+            }
+            let description = error.localizedDescription
+            let isCommandFailure = description.contains("CommandFailed")
+                || description.contains("command failed")
+                || description.contains("exit status")
+            if isCommandFailure {
+                throw SSHTransportError.commandFailed("")
+            }
+            throw error
+        }
     }
 
     func disconnect(serverID: UUID) async {
@@ -1282,6 +1296,7 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
     case jumpHostFingerprintRequired(serverID: UUID, fingerprint: String)
     case jumpHostMismatch(serverID: UUID, fingerprint: String)
     case unsupportedPrivateKey
+    case commandFailed(String)
 
     var errorDescription: String? {
         switch self {
@@ -1305,6 +1320,11 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
             return "跳板机密钥已更改。指纹：\(fingerprint)"
         case .unsupportedPrivateKey:
             return "当前传输层仅支持 RSA 和 Ed25519 的 OpenSSH 私钥。"
+        case .commandFailed(let detail):
+            if detail.isEmpty {
+                return "远程命令执行失败。"
+            }
+            return "远程命令执行失败：\(detail)"
         }
     }
 }

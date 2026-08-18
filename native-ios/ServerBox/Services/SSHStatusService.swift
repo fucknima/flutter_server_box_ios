@@ -91,7 +91,7 @@ enum SSHStatusProtocol {
         let marker = marker(for: name)
         return """
         printf '%s\\n' '\(marker)'
-        { \(command); } 2>/dev/null | sed 's/^/\(dataPrefix)/'
+        { \(command); } 2>/dev/null | sed 's/^/\(dataPrefix)/'; true
         """
     }
 
