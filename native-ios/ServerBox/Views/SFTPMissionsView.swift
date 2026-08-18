@@ -10,9 +10,9 @@ struct SFTPMissionsView: View {
             Group {
                 if viewModel.transfers.isEmpty {
                     ContentUnavailableView(
-                        "No transfer missions",
+                        "暂无传输任务",
                         systemImage: "arrow.down.circle",
-                        description: Text("SFTP downloads will appear here.")
+                        description: Text("SFTP 下载任务会显示在这里。")
                     )
                 } else {
                     List {
@@ -28,11 +28,11 @@ struct SFTPMissionsView: View {
                     }
                 }
             }
-            .navigationTitle("SFTP missions")
+            .navigationTitle("SFTP 任务")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("完成") { dismiss() }
                 }
             }
         }
@@ -63,8 +63,8 @@ struct SFTPMissionsView: View {
     private func statusView(for transfer: SFTPTransfer) -> some View {
         switch transfer.state {
         case .preparing:
-            missionSubtitle(transfer.direction == .download ? "Preparing download" : "Preparing upload")
-            Button("Cancel", role: .destructive) {
+            missionSubtitle(transfer.direction == .download ? "准备下载" : "准备上传")
+            Button("取消", role: .destructive) {
                 viewModel.cancel(transfer)
             }
             .font(.caption.weight(.semibold))
@@ -75,9 +75,9 @@ struct SFTPMissionsView: View {
                 ProgressView()
             }
             HStack {
-                Text(transfer.direction == .download ? byteSummary(for: transfer) : "Uploading: \(byteSummary(for: transfer))")
+                Text(transfer.direction == .download ? byteSummary(for: transfer) : "上传中：\(byteSummary(for: transfer))")
                 Spacer()
-                Button("Cancel", role: .destructive) {
+                Button("取消", role: .destructive) {
                     viewModel.cancel(transfer)
                 }
                 .font(.caption.weight(.semibold))
@@ -86,34 +86,34 @@ struct SFTPMissionsView: View {
             .foregroundStyle(.secondary)
         case .finished:
             HStack {
-                missionSubtitle(transfer.direction == .download ? "Finished" : "Uploaded")
+                missionSubtitle(transfer.direction == .download ? "已完成" : "已上传")
                 Spacer()
                 if transfer.direction == .download {
-                    Button("Open in Files") {
+                    Button("在文件中打开") {
                         onShowInFiles(transfer.localURL)
                     }
                     .font(.caption.weight(.semibold))
                     ShareLink(item: transfer.localURL) {
                         Image(systemName: "square.and.arrow.up")
                     }
-                    .accessibilityLabel("Share downloaded file")
+                    .accessibilityLabel("分享下载的文件")
                 }
             }
         case .failed:
             VStack(alignment: .leading, spacing: 4) {
-                Text(transfer.errorMessage ?? "Download failed")
+                Text(transfer.errorMessage ?? "下载失败")
                     .font(.caption)
                     .foregroundStyle(.red)
-                Button("Remove") {
+                Button("移除") {
                     viewModel.remove(transfer)
                 }
                 .font(.caption.weight(.semibold))
             }
         case .cancelled:
             HStack {
-                missionSubtitle("Cancelled")
+                missionSubtitle("已取消")
                 Spacer()
-                Button("Remove") {
+                Button("移除") {
                     viewModel.remove(transfer)
                 }
                 .font(.caption.weight(.semibold))

@@ -28,18 +28,23 @@ enum ConnectionResult: String, Codable, CaseIterable, Equatable, Sendable {
 
     static func classify(message: String) -> Self {
         let normalized = message.lowercased()
-        if normalized.contains("timed out") || normalized.contains("timeout") {
+        if normalized.contains("timed out") ||
+            normalized.contains("timeout") ||
+            normalized.contains("连接超时") {
             return .timeout
         }
         if normalized.contains("auth") ||
             normalized.contains("permission denied") ||
-            normalized.contains("access denied") {
+            normalized.contains("access denied") ||
+            normalized.contains("身份验证失败") ||
+            normalized.contains("权限被拒绝") {
             return .authFailed
         }
         if normalized.contains("connection refused") ||
             normalized.contains("no route to host") ||
             normalized.contains("network") ||
-            normalized.contains("socket") {
+            normalized.contains("socket") ||
+            normalized.contains("网络") {
             return .networkError
         }
         return .unknownError

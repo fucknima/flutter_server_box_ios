@@ -117,9 +117,9 @@ enum ServerStoreError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidData:
-            return "Saved server data could not be read."
+            return "无法读取已保存的服务器数据。"
         case .writeFailed:
-            return "Server changes could not be saved."
+            return "无法保存服务器更改。"
         }
     }
 }

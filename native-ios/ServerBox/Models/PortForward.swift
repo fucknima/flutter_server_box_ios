@@ -79,13 +79,13 @@ enum PortForwardConfigurationError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyName:
-            return "Enter a port forward name."
+            return "请输入端口转发名称。"
         case .emptyLocalHost:
-            return "Enter a local bind host."
+            return "请输入本地绑定主机。"
         case .invalidLocalPort:
-            return "The local port must be between 1 and 65535."
+            return "本地端口必须在 1 到 65535 之间。"
         case .invalidRemoteEndpoint:
-            return "Enter a remote host and a port between 1 and 65535."
+            return "请输入远程主机以及 1 到 65535 之间的端口。"
         }
     }
 }

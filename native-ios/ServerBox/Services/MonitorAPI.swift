@@ -40,7 +40,7 @@ struct MonitorAPI: MonitorAPIProtocol {
 
             guard envelope.code == 0 else {
                 let message = envelope.message.isEmpty
-                    ? "The monitor returned code \(envelope.code)."
+                    ? "监控返回代码 \(envelope.code)。"
                     : envelope.message
                 throw MonitorError.serverMessage(message)
             }
@@ -72,11 +72,11 @@ enum MonitorError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidResponse:
-            return "The server returned an invalid response."
+            return "服务器返回了无效的响应。"
         case .httpStatus(let statusCode):
-            return "The server returned HTTP \(statusCode)."
+            return "服务器返回 HTTP \(statusCode)。"
         case .emptyPayload, .invalidPayload:
-            return "The server returned an unreadable status payload."
+            return "服务器返回了无法读取的状态数据。"
         case .serverMessage(let message), .network(let message):
             return message
         }

@@ -40,13 +40,13 @@ enum SnippetError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyName:
-            "Enter a snippet name."
+            "请输入片段名称。"
         case .emptyScript:
-            "Enter a command or script."
+            "请输入命令或脚本。"
         case .invalidData:
-            "Saved snippets could not be read."
+            "无法读取已保存的片段。"
         case .writeFailed:
-            "Snippet changes could not be saved."
+            "无法保存片段更改。"
         }
     }
 }

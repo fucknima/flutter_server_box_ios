@@ -22,9 +22,9 @@ struct PortForwardView: View {
             Group {
                 if viewModel.configurations.isEmpty {
                     ContentUnavailableView(
-                        "No port forwarding rules",
+                        "暂无端口转发规则",
                         systemImage: "arrow.left.arrow.right",
-                        description: Text("Add a port forwarding rule to get started.")
+                        description: Text("添加端口转发规则以开始使用。")
                     )
                 } else {
                     List {
@@ -34,11 +34,11 @@ struct PortForwardView: View {
                     }
                 }
             }
-            .navigationTitle("Port forwarding")
+            .navigationTitle("端口转发")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -47,7 +47,7 @@ struct PortForwardView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Add port forwarding rule")
+                    .accessibilityLabel("添加端口转发规则")
                 }
             }
             .task {
@@ -78,7 +78,7 @@ struct PortForwardView: View {
                 }
             }
             .confirmationDialog(
-                "Delete port forwarding rule?",
+                "删除端口转发规则？",
                 isPresented: Binding(
                     get: { configurationToDelete != nil },
                     set: { isPresented in
@@ -86,17 +86,17 @@ struct PortForwardView: View {
                     }
                 )
             ) {
-                Button("Delete", role: .destructive) {
+                Button("删除", role: .destructive) {
                     guard let configurationToDelete else { return }
                     Task { await viewModel.remove(configurationToDelete) }
                     self.configurationToDelete = nil
                 }
-                Button("Cancel", role: .cancel) {}
+                Button("取消", role: .cancel) {}
             } message: {
                 Text(configurationToDelete?.name ?? "")
             }
             .alert(
-                "Port forwarding error",
+                "端口转发错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { isPresented in
@@ -104,9 +104,9 @@ struct PortForwardView: View {
                     }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown port forwarding error")
+                Text(viewModel.errorMessage ?? "未知端口转发错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -146,11 +146,11 @@ struct PortForwardView: View {
         }
         .contentShape(Rectangle())
         .contextMenu {
-            Button("Edit", systemImage: "pencil") {
+            Button("编辑", systemImage: "pencil") {
                 editingConfiguration = configuration
                 showingEditor = true
             }
-            Button("Delete", systemImage: "trash", role: .destructive) {
+            Button("删除", systemImage: "trash", role: .destructive) {
                 configurationToDelete = configuration
             }
         }
@@ -212,33 +212,33 @@ private struct PortForwardEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name)
-                    Picker("Type", selection: $type) {
-                        Text("Local").tag(PortForwardType.local)
-                        Text("Remote").tag(PortForwardType.remote)
+                    TextField("名称", text: $name)
+                    Picker("类型", selection: $type) {
+                        Text("本地").tag(PortForwardType.local)
+                        Text("远程").tag(PortForwardType.remote)
                         Text("SOCKS5").tag(PortForwardType.dynamic)
                     }
                     .pickerStyle(.segmented)
                 } header: {
-                    Text(existingConfiguration == nil ? "Add rule" : "Edit rule")
+                    Text(existingConfiguration == nil ? "添加规则" : "编辑规则")
                 } footer: {
                     Text(serverName)
                 }
 
-                Section("Local endpoint") {
-                    TextField("Bind host", text: $localHost)
+                Section("本地端点") {
+                    TextField("绑定主机", text: $localHost)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("Port", text: $localPort)
+                    TextField("端口", text: $localPort)
                         .keyboardType(.numberPad)
                 }
 
                 if type != .dynamic {
-                    Section("Remote endpoint") {
-                        TextField("Host", text: $remoteHost)
+                    Section("远程端点") {
+                        TextField("主机", text: $remoteHost)
                             .textInputAutocapitalization(.never)
                             .autocorrectionDisabled()
-                        TextField("Port", text: $remotePort)
+                        TextField("端口", text: $remotePort)
                             .keyboardType(.numberPad)
                     }
                 }
@@ -250,15 +250,15 @@ private struct PortForwardEditorView: View {
                     }
                 }
             }
-            .navigationTitle("Port forwarding")
+            .navigationTitle("端口转发")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                         .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("保存") { save() }
                         .disabled(isSaving)
                 }
             }

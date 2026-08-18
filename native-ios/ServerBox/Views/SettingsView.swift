@@ -17,35 +17,35 @@ struct SettingsView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Appearance") {
-                    Picker("Appearance", selection: $appearance) {
-                        Text("System").tag("system")
-                        Text("Light").tag("light")
-                        Text("Dark").tag("dark")
+                Section("外观") {
+                    Picker("外观", selection: $appearance) {
+                        Text("系统").tag("system")
+                        Text("浅色").tag("light")
+                        Text("深色").tag("dark")
                     }
                 }
 
-                Section("Home tabs") {
+                Section("首页标签") {
                     Toggle("SSH", isOn: $sshTabEnabled)
-                    Toggle("Files", isOn: $filesTabEnabled)
-                    Toggle("Snippets", isOn: $snippetsTabEnabled)
+                    Toggle("文件", isOn: $filesTabEnabled)
+                    Toggle("代码片段", isOn: $snippetsTabEnabled)
                     Toggle("Agent", isOn: $agentTabEnabled)
-                    Text("Servers is always enabled.")
+                    Text("服务器始终启用。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
 
                 Section("ServerBox") {
-                    NavigationLink("Connection statistics") {
+                    NavigationLink("连接统计") {
                         ConnectionStatsView(viewModel: ConnectionStatsViewModel())
                     }
-                    NavigationLink("Server discovery") {
+                    NavigationLink("服务器发现") {
                         ServerDiscoveryView(serverViewModel: serverViewModel)
                     }
-                    NavigationLink("Private keys") {
+                    NavigationLink("私钥") {
                         PrivateKeysView()
                     }
-                    NavigationLink("Backup") {
+                    NavigationLink("备份") {
                         BackupView(serverViewModel: serverViewModel)
                     }
                 }
@@ -53,51 +53,51 @@ struct SettingsView: View {
                 Section {
                     pushTokenRow
                 } header: {
-                    Text("iOS push")
+                    Text("iOS 推送")
                 } footer: {
-                    Text("Use the push token with your own push service. Self-compiled builds cannot use the project push service.")
+                    Text("将推送令牌用于你自己的推送服务。自行编译的版本无法使用项目推送服务。")
                 }
 
-                Section("SSH terminal") {
-                    NavigationLink("Virtual keys") {
+                Section("SSH 终端") {
+                    NavigationLink("虚拟按键") {
                         VirtKeysView()
                     }
                 }
 
-                Section("Advanced") {
-                    NavigationLink("Edit raw settings") {
+                Section("高级") {
+                    NavigationLink("编辑原始设置") {
                         RawSettingsEditorView()
                     }
                 }
 
                 Section {
-                    TextField("API endpoint", text: $agentBaseURL)
+                    TextField("API 端点", text: $agentBaseURL)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                         .keyboardType(.URL)
-                    SecureField("API key", text: $agentAPIKey)
-                    TextField("Model", text: $agentModel)
+                    SecureField("API 密钥", text: $agentAPIKey)
+                    TextField("模型", text: $agentModel)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
                     Text("Agent")
                 } footer: {
-                    Text("Use an OpenAI-compatible chat completions endpoint. The API key is stored in Keychain.")
+                    Text("使用兼容 OpenAI 的聊天补全接口。API 密钥存储在钥匙串中。")
                 }
 
-                Section("About") {
-                    LabeledContent("Native UI", value: "SwiftUI")
-                    LabeledContent("Home widget", value: "WidgetKit")
-                    Text("Flutter remains the behavior reference while the main app UI is migrated screen by screen.")
+                Section("关于") {
+                    LabeledContent("原生界面", value: "SwiftUI")
+                    LabeledContent("小组件", value: "WidgetKit")
+                    Text("主界面逐屏迁移中，Flutter 仍是行为参考。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 }
             }
-            .navigationTitle("Settings")
+            .navigationTitle("设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { dismiss() }
+                    Button("完成") { dismiss() }
                 }
             }
             .task {
@@ -117,22 +117,22 @@ struct SettingsView: View {
     private var pushTokenRow: some View {
         let token = pushToken
         if token.isEmpty {
-            Label("Push token unavailable", systemImage: "bell.slash")
+            Label("无法获取推送令牌", systemImage: "bell.slash")
                 .foregroundStyle(.secondary)
-            Button("Register for push notifications") {
+            Button("注册推送通知") {
                 AppDelegate.requestPushRegistration()
             }
         } else {
-            LabeledContent("Push token") {
+            LabeledContent("推送令牌") {
                 Text(token)
                     .font(.system(.caption, design: .monospaced))
                     .lineLimit(2)
                     .truncationMode(.middle)
             }
-            Button("Copy token") {
+            Button("复制令牌") {
                 UIPasteboard.general.string = token
             }
-            Button("Refresh token") {
+            Button("刷新令牌") {
                 AppDelegate.requestPushRegistration()
             }
         }
@@ -158,9 +158,9 @@ private struct PrivateKeysView: View {
         List {
             if records.isEmpty {
                 ContentUnavailableView(
-                    "No private keys",
+                    "暂无私钥",
                     systemImage: "key",
-                    description: Text("Add a private key to reuse it across server connections.")
+                    description: Text("添加私钥后即可在多个服务器连接中复用。")
                 )
             } else {
                 ForEach(records) { record in
@@ -182,14 +182,14 @@ private struct PrivateKeysView: View {
                     }
                     .buttonStyle(.plain)
                     .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                        Button("Delete", role: .destructive) {
+                        Button("删除", role: .destructive) {
                             delete(record)
                         }
                     }
                 }
             }
         }
-        .navigationTitle("Private keys")
+        .navigationTitle("私钥")
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {
                 Button {
@@ -198,7 +198,7 @@ private struct PrivateKeysView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .accessibilityLabel("Add private key")
+                .accessibilityLabel("添加私钥")
             }
         }
         .task { load() }
@@ -208,15 +208,15 @@ private struct PrivateKeysView: View {
             }
         }
         .alert(
-            "Private key error",
+            "私钥错误",
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button("OK", role: .cancel) {}
+            Button("好", role: .cancel) {}
         } message: {
-            Text(errorMessage ?? "Unknown private key error")
+            Text(errorMessage ?? "未知私钥错误")
         }
     }
 
@@ -267,26 +267,26 @@ private struct PrivateKeyEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Name", text: $name)
+                    TextField("名称", text: $name)
                     TextEditor(text: $key)
                         .font(.system(.footnote, design: .monospaced))
                         .frame(minHeight: 180)
-                    SecureField("Passphrase (optional)", text: $passphrase)
-                    Button("Import from file") { showingImporter = true }
+                    SecureField("口令（可选）", text: $passphrase)
+                    Button("从文件导入") { showingImporter = true }
                 } header: {
-                    Text("Private key")
+                    Text("私钥")
                 } footer: {
-                    Text("The key and passphrase are stored in the iOS Keychain.")
+                    Text("私钥和口令存储在 iOS 钥匙串中。")
                 }
             }
-            .navigationTitle(record == nil ? "Add private key" : "Edit private key")
+            .navigationTitle(record == nil ? "添加私钥" : "编辑私钥")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("保存") { save() }
                         .disabled(
                             name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                                 || key.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
@@ -317,15 +317,15 @@ private struct PrivateKeyEditorView: View {
                 }
             }
             .alert(
-                "Private key error",
+                "私钥错误",
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { if !$0 { errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Unknown private key error")
+                Text(errorMessage ?? "未知私钥错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -363,30 +363,30 @@ private struct BackupView: View {
     var body: some View {
         Form {
             Section {
-                Text("Export your server configuration without credentials. Passwords and private keys remain in Keychain and are never included.")
+                Text("导出服务器配置（不含凭据）。密码和私钥保留在钥匙串中，绝不包含在导出内容中。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
-                Button("Create backup") { createBackup() }
+                Button("创建备份") { createBackup() }
                 if let exportURL {
                     ShareLink(item: exportURL) {
-                        Label("Share backup", systemImage: "square.and.arrow.up")
+                        Label("分享备份", systemImage: "square.and.arrow.up")
                     }
                 }
-                Button("Restore backup") { showingImporter = true }
+                Button("恢复备份") { showingImporter = true }
             } header: {
-                Text("Backup")
+                Text("备份")
             }
 
             Section {
-                Button("Bulk import servers") { showingBulkImporter = true }
+                Button("批量导入服务器") { showingBulkImporter = true }
             } header: {
-                Text("Import")
+                Text("导入")
             } footer: {
-                Text("Import a JSON file: [{\"name\",\"ip\",\"port\",\"user\",\"pwd\",\"keyId\",\"tags\",\"alterUrl\",\"autoConnect\"}]. keyId is the name of a saved private key.")
+                Text("导入 JSON 文件：[{\"name\",\"ip\",\"port\",\"user\",\"pwd\",\"keyId\",\"tags\",\"alterUrl\",\"autoConnect\"}]。keyId 为已保存私钥的名称。")
             }
 
-            Section("Servers") {
-                LabeledContent("Server count", value: "\(serverViewModel.servers.count)")
+            Section("服务器") {
+                LabeledContent("服务器数量", value: "\(serverViewModel.servers.count)")
             }
 
             if let bulkImportMessage {
@@ -396,7 +396,7 @@ private struct BackupView: View {
                 }
             }
         }
-        .navigationTitle("Backup")
+        .navigationTitle("备份")
         .task { await serverViewModel.loadIfNeeded() }
         .fileImporter(
             isPresented: $showingImporter,
@@ -421,22 +421,22 @@ private struct BackupView: View {
             Task {
                 do {
                     let count = try await serverViewModel.importBulkServers(from: url)
-                    bulkImportMessage = "Imported \(count) servers."
+                    bulkImportMessage = "已导入 \(count) 台服务器。"
                 } catch {
                     errorMessage = error.localizedDescription
                 }
             }
         }
         .alert(
-            "Backup error",
+            "备份错误",
             isPresented: Binding(
                 get: { errorMessage != nil },
                 set: { if !$0 { errorMessage = nil } }
             )
         ) {
-            Button("OK", role: .cancel) {}
+            Button("好", role: .cancel) {}
         } message: {
-            Text(errorMessage ?? "Unknown backup error")
+            Text(errorMessage ?? "未知备份错误")
         }
     }
 

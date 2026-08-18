@@ -101,21 +101,21 @@ struct ServerToolsView: View {
         NavigationStack {
             TabView {
                 ServicesTab(viewModel: viewModel)
-                    .tabItem { Label("Services", systemImage: "gearshape.2") }
+                    .tabItem { Label("服务", systemImage: "gearshape.2") }
                 ContainersTab(viewModel: viewModel)
-                    .tabItem { Label("Containers", systemImage: "shippingbox") }
+                    .tabItem { Label("容器", systemImage: "shippingbox") }
             }
-            .navigationTitle("Server Tools")
+            .navigationTitle("服务器工具")
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
             }
             .task {
                 await viewModel.loadAll()
             }
             .alert(
-                "Tool error",
+                "工具错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { isPresented in
@@ -123,9 +123,9 @@ struct ServerToolsView: View {
                     }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown server tool error")
+                Text(viewModel.errorMessage ?? "未知服务器工具错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -159,10 +159,10 @@ private struct ServicesTab: View {
             }
             .buttonStyle(.plain)
         }
-        .overlay { emptyState(title: "No systemd services", loading: viewModel.isLoadingServices) }
+        .overlay { emptyState(title: "没有 systemd 服务", loading: viewModel.isLoadingServices) }
         .refreshable { await viewModel.loadServices() }
         .confirmationDialog(
-            "Control system service?",
+            "控制系统服务？",
             isPresented: Binding(
                 get: { viewModel.serviceToControl != nil },
                 set: { isPresented in
@@ -170,10 +170,10 @@ private struct ServicesTab: View {
                 }
             )
         ) {
-            Button("Start") { Task { await viewModel.applyServiceAction(.start) } }
-            Button("Stop", role: .destructive) { Task { await viewModel.applyServiceAction(.stop) } }
-            Button("Restart") { Task { await viewModel.applyServiceAction(.restart) } }
-            Button("Cancel", role: .cancel) {}
+            Button("启动") { Task { await viewModel.applyServiceAction(.start) } }
+            Button("停止", role: .destructive) { Task { await viewModel.applyServiceAction(.stop) } }
+            Button("重启") { Task { await viewModel.applyServiceAction(.restart) } }
+            Button("取消", role: .cancel) {}
         } message: {
             Text(viewModel.serviceToControl?.unit ?? "")
         }
@@ -210,10 +210,10 @@ private struct ContainersTab: View {
             }
             .buttonStyle(.plain)
         }
-        .overlay { emptyState(title: "No containers", loading: viewModel.isLoadingContainers) }
+        .overlay { emptyState(title: "没有容器", loading: viewModel.isLoadingContainers) }
         .refreshable { await viewModel.loadContainers() }
         .confirmationDialog(
-            "Control container?",
+            "控制容器？",
             isPresented: Binding(
                 get: { viewModel.containerToControl != nil },
                 set: { isPresented in
@@ -221,10 +221,10 @@ private struct ContainersTab: View {
                 }
             )
         ) {
-            Button("Start") { Task { await viewModel.applyContainerAction(.start) } }
-            Button("Stop", role: .destructive) { Task { await viewModel.applyContainerAction(.stop) } }
-            Button("Restart") { Task { await viewModel.applyContainerAction(.restart) } }
-            Button("Cancel", role: .cancel) {}
+            Button("启动") { Task { await viewModel.applyContainerAction(.start) } }
+            Button("停止", role: .destructive) { Task { await viewModel.applyContainerAction(.stop) } }
+            Button("重启") { Task { await viewModel.applyContainerAction(.restart) } }
+            Button("取消", role: .cancel) {}
         } message: {
             Text(viewModel.containerToControl?.name ?? "")
         }
@@ -234,7 +234,7 @@ private struct ContainersTab: View {
 @ViewBuilder
 private func emptyState(title: LocalizedStringKey, loading: Bool) -> some View {
     if loading {
-        ProgressView("Loading...")
+        ProgressView("加载中...")
     } else {
         ContentUnavailableView(title, systemImage: "server.rack")
     }

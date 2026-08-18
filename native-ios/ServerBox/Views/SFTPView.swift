@@ -73,7 +73,7 @@ final class SFTPViewModel: ObservableObject {
     func goTo(path: String) async {
         let normalized = path.trimmingCharacters(in: .whitespacesAndNewlines)
         guard normalized.hasPrefix("/"), !normalized.isEmpty else {
-            errorMessage = "The path must start with /."
+            errorMessage = "路径必须以 / 开头。"
             return
         }
         await load(path: normalized.replacingOccurrences(of: "/+", with: "/", options: .regularExpression))
@@ -109,7 +109,7 @@ final class SFTPViewModel: ObservableObject {
 
     func mutate(_ mutation: SFTPRemoteMutation) async {
         guard !isMutating else {
-            errorMessage = "Another remote operation is already running."
+            errorMessage = "另一个远程操作正在进行。"
             return
         }
         isMutating = true
@@ -125,7 +125,7 @@ final class SFTPViewModel: ObservableObject {
 
     func saveFile(_ file: RemoteFilePreview, content: String) async -> Bool {
         guard !isMutating else {
-            errorMessage = "Another remote operation is already running."
+            errorMessage = "另一个远程操作正在进行。"
             return false
         }
         isMutating = true
@@ -158,9 +158,9 @@ private enum SFTPNameOperation {
 
     var title: LocalizedStringKey {
         switch self {
-        case .createDirectory: "New folder"
-        case .createFile: "New file"
-        case .rename: "Rename"
+        case .createDirectory: "新建文件夹"
+        case .createFile: "新建文件"
+        case .rename: "重命名"
         }
     }
 
@@ -186,9 +186,9 @@ private enum SFTPFileSortOrder: String, CaseIterable, Identifiable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .name: "Name"
-        case .size: "Size"
-        case .modified: "Modified"
+        case .name: "名称"
+        case .size: "大小"
+        case .modified: "修改时间"
         }
     }
 }
@@ -246,12 +246,12 @@ struct SFTPView: View {
                 }
 
                 if viewModel.isLoading && viewModel.files.isEmpty {
-                    ProgressView("Loading directory...")
+                    ProgressView("正在加载目录...")
                 } else if viewModel.files.isEmpty {
                     ContentUnavailableView(
-                        "Empty directory",
+                        "目录为空",
                         systemImage: "folder",
-                        description: Text("There are no files to display here.")
+                        description: Text("这里没有可显示的文件。")
                     )
                 } else if filteredFiles.isEmpty {
                     ContentUnavailableView.search(text: searchText)
@@ -273,26 +273,26 @@ struct SFTPView: View {
                                         .font(.title3)
                                 }
                                 .buttonStyle(.borderless)
-                                .accessibilityLabel("Download \(file.name)")
+                                .accessibilityLabel("下载 \(file.name)")
                             }
                         }
                         .disabled(viewModel.isMutating)
                         .contextMenu {
-                            Button("Rename", systemImage: "pencil") {
+                            Button("重命名", systemImage: "pencil") {
                                 nameInput = SFTPNameInput(operation: .rename(file))
                             }
                             .disabled(viewModel.isMutating)
                             if !file.isDirectory {
-                                Button("Download", systemImage: "arrow.down.circle") {
+                                Button("下载", systemImage: "arrow.down.circle") {
                                     onDownload(file)
                                 }
                                 .disabled(viewModel.isMutating)
                             }
-                            Button("Permissions", systemImage: "lock") {
+                            Button("权限", systemImage: "lock") {
                                 fileForPermissions = file
                             }
                             .disabled(viewModel.isMutating)
-                            Button("Delete", systemImage: "trash", role: .destructive) {
+                            Button("删除", systemImage: "trash", role: .destructive) {
                                 fileToDelete = file
                             }
                             .disabled(viewModel.isMutating)
@@ -304,7 +304,7 @@ struct SFTPView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -312,7 +312,7 @@ struct SFTPView: View {
                     } label: {
                         Image(systemName: "house")
                     }
-                    .accessibilityLabel("Home directory")
+                    .accessibilityLabel("主目录")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -320,7 +320,7 @@ struct SFTPView: View {
                     } label: {
                         Image(systemName: "location")
                     }
-                    .accessibilityLabel("Go to path")
+                    .accessibilityLabel("跳转路径")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
@@ -343,7 +343,7 @@ struct SFTPView: View {
                     } label: {
                         Image(systemName: "arrow.up.arrow.down")
                     }
-                    .accessibilityLabel("Sort files")
+                    .accessibilityLabel("文件排序")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -351,21 +351,21 @@ struct SFTPView: View {
                     } label: {
                         Image(systemName: "arrow.up.doc")
                     }
-                    .accessibilityLabel("Upload file")
+                    .accessibilityLabel("上传文件")
                     .disabled(viewModel.isMutating)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("New folder", systemImage: "folder.badge.plus") {
+                        Button("新建文件夹", systemImage: "folder.badge.plus") {
                             nameInput = SFTPNameInput(operation: .createDirectory)
                         }
-                        Button("New file", systemImage: "doc.badge.plus") {
+                        Button("新建文件", systemImage: "doc.badge.plus") {
                             nameInput = SFTPNameInput(operation: .createFile)
                         }
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Create remote item")
+                    .accessibilityLabel("创建远程项目")
                     .disabled(viewModel.isMutating)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -374,7 +374,7 @@ struct SFTPView: View {
                     } label: {
                         Image(systemName: "arrow.down.circle")
                     }
-                    .accessibilityLabel("SFTP missions")
+                    .accessibilityLabel("SFTP 任务")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -387,7 +387,7 @@ struct SFTPView: View {
                         }
                     }
                     .disabled(viewModel.isLoading)
-                    .accessibilityLabel("Refresh directory")
+                    .accessibilityLabel("刷新目录")
                 }
             }
             .task {
@@ -395,7 +395,7 @@ struct SFTPView: View {
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
             .alert(
-                "SFTP error",
+                "SFTP 错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { isPresented in
@@ -403,9 +403,9 @@ struct SFTPView: View {
                     }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown SFTP error")
+                Text(viewModel.errorMessage ?? "未知 SFTP 错误")
             }
             .sheet(item: $viewModel.preview) { preview in
                 RemoteFilePreviewView(preview: preview) { content in
@@ -441,7 +441,7 @@ struct SFTPView: View {
                 SFTPNameInputView(input: input) { name in
                     nameInput = nil
                     guard let mutation = makeMutation(input.operation, name: name) else {
-                        viewModel.errorMessage = "A name without slashes is required."
+                        viewModel.errorMessage = "名称不能为空且不能包含斜杠。"
                         return
                     }
                     Task { await viewModel.mutate(mutation) }
@@ -454,7 +454,7 @@ struct SFTPView: View {
                 }
             }
             .confirmationDialog(
-                "Delete remote item?",
+                "删除远程项目？",
                 isPresented: Binding(
                     get: { fileToDelete != nil },
                     set: { isPresented in
@@ -462,7 +462,7 @@ struct SFTPView: View {
                     }
                 )
             ) {
-                Button("Delete", role: .destructive) {
+                Button("删除", role: .destructive) {
                     guard let file = fileToDelete else { return }
                     fileToDelete = nil
                     Task {
@@ -475,13 +475,13 @@ struct SFTPView: View {
                         )
                     }
                 }
-                Button("Cancel", role: .cancel) {
+                Button("取消", role: .cancel) {
                     fileToDelete = nil
                 }
             } message: {
                 Text(fileToDelete?.isDirectory == true
-                    ? "This directory and all of its contents will be deleted."
-                    : "This remote file will be deleted.")
+                    ? "此目录及其所有内容将被删除。"
+                    : "此远程文件将被删除。")
             }
         }
         .tint(DesignTokens.accent)
@@ -592,7 +592,7 @@ private struct SFTPNameInputView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name", text: $name)
+                TextField("名称", text: $name)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
@@ -600,10 +600,10 @@ private struct SFTPNameInputView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("保存") {
                         onSubmit(name)
                         dismiss()
                     }
@@ -629,18 +629,18 @@ private struct SFTPPathInputView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Path", text: $value)
+                TextField("路径", text: $value)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
-            .navigationTitle("Go to path")
+            .navigationTitle("跳转路径")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Go") {
+                    Button("跳转") {
                         onSubmit(value)
                         dismiss()
                     }
@@ -670,33 +670,33 @@ private struct SFTPPermissionsInputView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Octal permissions", text: $value)
+                TextField("八进制权限", text: $value)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
-                Text("Use values such as 0644 or 0755.")
+                Text("请使用 0644 或 0755 之类的值。")
                     .font(.footnote)
                     .foregroundStyle(.secondary)
             }
-            .navigationTitle("Permissions")
+            .navigationTitle("权限")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { submit() }
+                    Button("保存") { submit() }
                 }
             }
             .alert(
-                "Invalid permissions",
+                "权限无效",
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { if !$0 { errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Enter an octal permission value.")
+                Text(errorMessage ?? "请输入八进制权限值。")
             }
         }
     }
@@ -707,7 +707,7 @@ private struct SFTPPermissionsInputView: View {
               normalized.allSatisfy({ "01234567".contains($0) }),
               let permissions = UInt32(normalized, radix: 8),
               permissions <= 0o7777 else {
-            errorMessage = "Enter an octal value between 0000 and 7777."
+            errorMessage = "请输入 0000 到 7777 之间的八进制值。"
             return
         }
         onSubmit(permissions)
@@ -739,11 +739,11 @@ private struct RemoteFilePreviewView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                         .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("保存") {
                         Task {
                             isSaving = true
                             if await onSave(content) {

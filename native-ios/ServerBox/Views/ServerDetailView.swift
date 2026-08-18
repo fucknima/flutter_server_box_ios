@@ -35,10 +35,10 @@ struct ServerDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Edit", action: onEdit)
+                    Button("编辑", action: onEdit)
                 }
             }
         }
@@ -104,12 +104,12 @@ struct ServerDetailView: View {
         Group {
             switch connectionState {
             case .connected:
-                Button("Disconnect", action: onDisconnect)
+                Button("断开连接", action: onDisconnect)
                     .buttonStyle(.bordered)
             case .connecting:
-                ProgressView("Connecting...")
+                ProgressView("连接中...")
             case .disconnected, .failed:
-                Button("Connect", action: onConnect)
+                Button("连接", action: onConnect)
                     .buttonStyle(.borderedProminent)
             }
         }
@@ -117,35 +117,35 @@ struct ServerDetailView: View {
 
     private var secondaryActions: some View {
         HStack(spacing: DesignTokens.spaceS) {
-            Button("Terminal", action: onOpenTerminal)
+            Button("终端", action: onOpenTerminal)
                 .disabled(connectionState != .connected)
             Button("SFTP", action: onOpenSFTP)
                 .disabled(connectionState != .connected)
-            Button("Refresh", action: onRefresh)
+            Button("刷新", action: onRefresh)
         }
         .buttonStyle(.bordered)
     }
 
     private var configurationSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
-            Text("Configuration")
+            Text("配置")
                 .font(.headline)
-            LabeledContent("Host", value: server.host)
-            LabeledContent("Port", value: "\(server.port)")
-            LabeledContent("Username", value: server.username)
-            LabeledContent("Authentication") {
+            LabeledContent("主机", value: server.host)
+            LabeledContent("端口", value: "\(server.port)")
+            LabeledContent("用户名", value: server.username)
+            LabeledContent("认证方式") {
                 Text(authenticationTitle)
             }
             if let statusURL = server.statusURL {
-                LabeledContent("Status monitor", value: statusURL.absoluteString)
+                LabeledContent("状态监控", value: statusURL.absoluteString)
             }
             if !server.normalizedJumpServerIDs.isEmpty {
-                LabeledContent("Jump hosts", value: "\(server.normalizedJumpServerIDs.count)")
+                LabeledContent("跳板主机", value: "\(server.normalizedJumpServerIDs.count)")
             }
             if let proxyCommand = server.proxyCommand, !proxyCommand.isEmpty {
-                LabeledContent("Proxy command", value: proxyCommand)
+                LabeledContent("代理命令", value: proxyCommand)
             }
-            LabeledContent("Proxmox tools", value: server.pveEnabled ? "Enabled" : "Disabled")
+            LabeledContent("Proxmox 工具", value: server.pveEnabled ? "已启用" : "已禁用")
         }
         .padding(DesignTokens.spaceM)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -156,18 +156,18 @@ struct ServerDetailView: View {
     @ViewBuilder
     private var statusSection: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
-            Text("Live status")
+            Text("实时状态")
                 .font(.headline)
             switch state {
             case .idle:
                 ContentUnavailableView(
-                    "No status yet",
+                    "暂无状态",
                     systemImage: "chart.bar",
-                    description: Text("Refresh the monitor or connect over SSH to load status.")
+                    description: Text("刷新监控或通过 SSH 连接以加载状态。")
                 )
                 .frame(maxWidth: .infinity)
             case .loading:
-                ProgressView("Loading status...")
+                ProgressView("正在加载状态...")
                     .frame(maxWidth: .infinity, alignment: .center)
                     .padding(.vertical, DesignTokens.spaceL)
             case .failed(let message):
@@ -204,13 +204,13 @@ struct ServerDetailView: View {
 
     @ViewBuilder
     private var detailToolButtons: some View {
-        Button("Processes", action: onOpenProcesses)
-        Button("Server tools", action: onOpenTools)
+        Button("进程", action: onOpenProcesses)
+        Button("服务器工具", action: onOpenTools)
         if server.pveEnabled {
             Button("PVE", action: onOpenPVE)
         }
         Button("iperf", action: onOpenIperf)
-        Button("Port forwarding", action: onOpenPortForward)
+        Button("端口转发", action: onOpenPortForward)
     }
 
     @ViewBuilder
@@ -218,7 +218,7 @@ struct ServerDetailView: View {
         if case .loaded(let status) = state, !status.customCmds.isEmpty {
             let entries = status.customCmds.sorted { $0.key < $1.key }
             VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
-                Text("Custom commands")
+                Text("自定义命令")
                     .font(.headline)
                 ForEach(entries, id: \.key) { key, value in
                     Button {
@@ -278,7 +278,7 @@ struct ServerDetailView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Done") { inspectingCustomCommand = nil }
+                    Button("完成") { inspectingCustomCommand = nil }
                 }
             }
         }
@@ -309,16 +309,16 @@ struct ServerDetailView: View {
     private func statusMetrics(_ status: ServerStatus) -> some View {
         VStack(spacing: DesignTokens.spaceM) {
             DetailMetricRow(title: "CPU", value: status.cpu, fraction: status.cpuFraction, image: "cpu")
-            DetailMetricRow(title: "Memory", value: status.memory, fraction: status.memoryFraction, image: "memorychip")
-            DetailMetricRow(title: "Disk", value: status.disk, fraction: status.diskFraction, image: "internaldrive")
-            DetailMetricRow(title: "Network", value: status.network, fraction: nil, image: "network")
+            DetailMetricRow(title: "内存", value: status.memory, fraction: status.memoryFraction, image: "memorychip")
+            DetailMetricRow(title: "磁盘", value: status.disk, fraction: status.diskFraction, image: "internaldrive")
+            DetailMetricRow(title: "网络", value: status.network, fraction: nil, image: "network")
         }
     }
 
     private var authenticationTitle: LocalizedStringKey {
         switch server.authentication {
-        case .password: "Password"
-        case .privateKey: "Private key"
+        case .password: "密码"
+        case .privateKey: "私钥"
         }
     }
 

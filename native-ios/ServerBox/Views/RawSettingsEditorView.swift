@@ -23,9 +23,9 @@ struct RawSettingsEditorView: View {
                         .font(.system(.footnote, design: .monospaced))
                         .frame(minHeight: 300)
                 } header: {
-                    Text("Raw settings")
+                    Text("原始设置")
                 } footer: {
-                    Text("Edit the JSON values directly. Wrong values may break behavior; make a backup first. Hidden settings: native.timeOut (seconds, default 5), native.recordHistory (bool, default true), native.textFactor (double, default 1.0).")
+                    Text("直接编辑 JSON 值。错误的配置可能导致异常，请先备份。隐藏设置：native.timeOut（秒，默认 5）、native.recordHistory（布尔值，默认 true）、native.textFactor（浮点数，默认 1.0）。")
                 }
 
                 if let errorMessage {
@@ -35,14 +35,14 @@ struct RawSettingsEditorView: View {
                     }
                 }
             }
-            .navigationTitle("Edit raw settings")
+            .navigationTitle("编辑原始设置")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("保存") { save() }
                 }
             }
         }
@@ -52,12 +52,12 @@ struct RawSettingsEditorView: View {
     private func save() {
         let trimmed = text.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !trimmed.isEmpty else {
-            errorMessage = "The JSON cannot be empty."
+            errorMessage = "JSON 不能为空。"
             return
         }
         guard let data = trimmed.data(using: .utf8),
               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            errorMessage = "The input is not a valid JSON object."
+            errorMessage = "输入不是有效的 JSON 对象。"
             return
         }
         for key in SettingsStore.editableKeys {

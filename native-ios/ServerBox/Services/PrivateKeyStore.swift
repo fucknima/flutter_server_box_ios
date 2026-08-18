@@ -82,11 +82,11 @@ enum PrivateKeyStoreError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyKey:
-            return "Enter a private key."
+            return "请输入私钥。"
         case .invalidSecret:
-            return "The private key could not be encoded."
+            return "私钥无法编码。"
         case .missingSecret:
-            return "The private key is missing from Keychain."
+            return "私钥不在钥匙串中。"
         }
     }
 }

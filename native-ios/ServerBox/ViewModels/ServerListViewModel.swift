@@ -112,55 +112,68 @@ final class ServerListViewModel: ObservableObject {
             }
         }
 
-        for server in servers where server.isEnabled {
-            guard !Task.isCancelled, generation == refreshGeneration else { return }
-
-            guard let statusURL = server.statusURL else {
-                guard connectionState(for: server) == .connected else {
-                    states[server.id] = .idle
-                    continue
+        let enabledServers = servers.filter(\.isEnabled)
+        await withTaskGroup(of: Void.self) { group in
+            for server in enabledServers {
+                group.addTask { @MainActor [weak self] in
+                    guard let self, !Task.isCancelled else { return }
+                    await self.refreshServer(server, generation: generation)
                 }
+            }
+        }
+    }
 
-                states[server.id] = .loading
+    private func refreshServer(
+        _ server: ServerConfiguration,
+        generation: Int
+    ) async {
+        guard generation == refreshGeneration, !Task.isCancelled else { return }
 
-                do {
-                    let status = try await sshStatusService.fetchStatus(for: server)
-                    guard generation == refreshGeneration else { return }
-                    states[server.id] = .loaded(status)
-                } catch is CancellationError {
-                    return
-                } catch {
-                    guard generation == refreshGeneration else { return }
-                    if let transportError = error as? SSHTransportError,
-                       case .notConnected = transportError {
-                        connectionStates[server.id] = .disconnected
-                    }
-                    states[server.id] = .failed(error.localizedDescription)
-                }
-                continue
+        guard let statusURL = server.statusURL else {
+            guard connectionState(for: server) == .connected else {
+                states[server.id] = .idle
+                return
             }
 
             states[server.id] = .loading
 
             do {
-                let monitorServer = MonitorServer(
-                    id: server.id,
-                    name: server.name,
-                    statusURL: statusURL,
-                    isEnabled: server.isEnabled,
-                    createdAt: server.createdAt
-                )
-                let status = try await api.fetchStatus(for: monitorServer)
+                let status = try await sshStatusService.fetchStatus(for: server)
                 guard generation == refreshGeneration else { return }
-                let merged = await mergeSSHStatus(status, for: server)
-                guard generation == refreshGeneration else { return }
-                states[server.id] = .loaded(merged)
+                states[server.id] = .loaded(status)
             } catch is CancellationError {
                 return
             } catch {
                 guard generation == refreshGeneration else { return }
+                if let transportError = error as? SSHTransportError,
+                   case .notConnected = transportError {
+                    connectionStates[server.id] = .disconnected
+                }
                 states[server.id] = .failed(error.localizedDescription)
             }
+            return
+        }
+
+        states[server.id] = .loading
+
+        do {
+            let monitorServer = MonitorServer(
+                id: server.id,
+                name: server.name,
+                statusURL: statusURL,
+                isEnabled: server.isEnabled,
+                createdAt: server.createdAt
+            )
+            let status = try await api.fetchStatus(for: monitorServer)
+            guard generation == refreshGeneration else { return }
+            let merged = await mergeSSHStatus(status, for: server)
+            guard generation == refreshGeneration else { return }
+            states[server.id] = .loaded(merged)
+        } catch is CancellationError {
+            return
+        } catch {
+            guard generation == refreshGeneration else { return }
+            states[server.id] = .failed(error.localizedDescription)
         }
     }
 
@@ -582,6 +595,7 @@ final class ServerListViewModel: ObservableObject {
         let message = error.localizedDescription.lowercased()
         return message.contains("timed out")
             || message.contains("timeout")
+            || message.contains("连接超时")
             || message.contains("connection refused")
             || message.contains("network is unreachable")
             || message.contains("no route")
@@ -603,10 +617,10 @@ final class ServerListViewModel: ObservableObject {
         switch transportError {
         case let .jumpHostFingerprintRequired(serverID, fingerprint):
             jumpID = serverID
-            message = "This server is not trusted yet. Fingerprint: \(fingerprint)"
+            message = "此服务器尚未受信任。指纹：\(fingerprint)"
         case let .jumpHostMismatch(serverID, fingerprint):
             jumpID = serverID
-            message = "The SSH host key changed. Fingerprint: \(fingerprint)"
+            message = "SSH 主机密钥已更改。指纹：\(fingerprint)"
         default:
             return
         }

@@ -130,13 +130,13 @@ enum AgentError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .missingAPIKey:
-            "Configure an API key in Settings before using Agent."
+            "使用前请在设置中配置 API 密钥。"
         case .invalidEndpoint:
-            "Enter a valid OpenAI-compatible API endpoint."
+            "请输入有效的 OpenAI 兼容 API 地址。"
         case .requestFailed(let message):
-            message.isEmpty ? "The Agent request failed." : message
+            message.isEmpty ? "Agent 请求失败。" : message
         case .emptyResponse:
-            "The Agent returned no response."
+            "Agent 未返回任何响应。"
         }
     }
 }
@@ -179,7 +179,7 @@ final class AgentViewModel: ObservableObject {
                 didLoad = true
             } catch {
                 guard self.loadGeneration == generation else { return }
-                self.errorMessage = "The Agent conversation could not be restored."
+                self.errorMessage = "无法恢复 Agent 对话记录。"
             }
             if self.loadGeneration == generation, didLoad {
                 self.isLoaded = true
@@ -227,7 +227,7 @@ final class AgentViewModel: ObservableObject {
             do {
                 try await self.store.save([])
             } catch {
-                self.errorMessage = "The Agent conversation could not be cleared."
+                self.errorMessage = "无法清除 Agent 对话记录。"
             }
         }
     }
@@ -236,7 +236,7 @@ final class AgentViewModel: ObservableObject {
         do {
             try await store.save(messages)
         } catch {
-            errorMessage = "The Agent conversation could not be saved."
+            errorMessage = "无法保存 Agent 对话记录。"
         }
     }
 
@@ -261,7 +261,7 @@ struct AgentView: View {
                     ContentUnavailableView(
                         "Agent",
                         systemImage: "sparkles",
-                        description: Text("Ask questions about your servers and commands.")
+                        description: Text("询问关于你的服务器和命令的问题。")
                     )
                     .frame(maxHeight: .infinity)
                 } else {
@@ -289,7 +289,7 @@ struct AgentView: View {
 
                 Divider()
                 HStack(alignment: .bottom, spacing: DesignTokens.spaceS) {
-                    TextField("Ask Agent", text: $prompt, axis: .vertical)
+                    TextField("询问 Agent", text: $prompt, axis: .vertical)
                         .lineLimit(1...5)
                         .textInputAutocapitalization(.sentences)
                         .onSubmit { send() }
@@ -298,7 +298,7 @@ struct AgentView: View {
                             .font(.title2)
                     }
                     .disabled(prompt.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || viewModel.isSending)
-                    .accessibilityLabel("Send message")
+                    .accessibilityLabel("发送消息")
                 }
                 .padding(DesignTokens.spaceM)
             }
@@ -308,23 +308,23 @@ struct AgentView: View {
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("Settings")
+                    .accessibilityLabel("设置")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button("Clear", action: viewModel.clear)
+                    Button("清空", action: viewModel.clear)
                         .disabled(viewModel.messages.isEmpty || viewModel.isSending)
                 }
             }
             .alert(
-                "Agent error",
+                "Agent 错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown Agent error")
+                Text(viewModel.errorMessage ?? "未知 Agent 错误")
             }
             .task {
                 apiKey = (try? AgentCredentialStore().loadAPIKey()) ?? ""

@@ -63,33 +63,33 @@ struct ServerCardView: View {
                         Button {
                             onOpenTerminal()
                         } label: {
-                            Label("Open terminal", systemImage: "terminal")
+                            Label("打开终端", systemImage: "terminal")
                         }
                         Button {
                             onOpenSFTP()
                         } label: {
-                            Label("Open SFTP", systemImage: "folder")
+                            Label("打开 SFTP", systemImage: "folder")
                         }
                         Button {
                             onOpenProcesses()
                         } label: {
-                            Label("Processes", systemImage: "cpu")
+                            Label("进程", systemImage: "cpu")
                         }
                         Button {
                             onOpenTools()
                         } label: {
-                            Label("Server tools", systemImage: "wrench.and.screwdriver")
+                            Label("服务器工具", systemImage: "wrench.and.screwdriver")
                         }
                         Button {
                             onDisconnect()
                         } label: {
-                            Label("Disconnect", systemImage: "rectangle.portrait.and.arrow.right")
+                            Label("断开连接", systemImage: "rectangle.portrait.and.arrow.right")
                         }
                     default:
                         Button {
                             onConnect()
                         } label: {
-                            Label("Connect", systemImage: "rectangle.portrait.and.arrow.right")
+                            Label("连接", systemImage: "rectangle.portrait.and.arrow.right")
                         }
 
                         if canTrustHost {
@@ -97,7 +97,7 @@ struct ServerCardView: View {
                                 onTrustAndConnect()
                             } label: {
                                 Label(
-                                    server.knownHostKey == nil ? "Trust and connect" : "Replace host key",
+                                    server.knownHostKey == nil ? "信任并连接" : "替换主机密钥",
                                     systemImage: "checkmark.shield"
                                 )
                             }
@@ -108,27 +108,27 @@ struct ServerCardView: View {
                         Button {
                             onRefresh()
                         } label: {
-                            Label("Refresh monitor", systemImage: "arrow.clockwise")
+                            Label("刷新监控", systemImage: "arrow.clockwise")
                         }
                     }
 
                     Button {
                         onEdit()
                     } label: {
-                        Label("Edit", systemImage: "pencil")
+                        Label("编辑", systemImage: "pencil")
                     }
                     Divider()
                     Button(role: .destructive) {
                         onDelete()
                     } label: {
-                        Label("Delete", systemImage: "trash")
+                        Label("删除", systemImage: "trash")
                     }
                 } label: {
                     Image(systemName: "ellipsis.circle")
                         .font(.title3)
                         .frame(width: 44, height: 44)
                 }
-                .accessibilityLabel("Actions for \(displayName)")
+                .accessibilityLabel("\(displayName) 的操作")
             }
 
             connectionSummary
@@ -145,23 +145,23 @@ struct ServerCardView: View {
             Button {
                 onEdit()
             } label: {
-                Label("Edit", systemImage: "pencil")
+                Label("编辑", systemImage: "pencil")
             }
             Button {
                 pendingPowerAction = .suspend
             } label: {
-                Label("Suspend", systemImage: "pause.circle")
+                Label("挂起", systemImage: "pause.circle")
             }
             Button(role: .destructive) {
                 pendingPowerAction = .shutdown
             } label: {
-                Label("Shutdown", systemImage: "power")
+                Label("关机", systemImage: "power")
             }
             Divider()
             Button(role: .destructive) {
                 onDelete()
             } label: {
-                Label("Delete", systemImage: "trash")
+                Label("删除", systemImage: "trash")
             }
         }
         .confirmationDialog(
@@ -180,7 +180,7 @@ struct ServerCardView: View {
                 }
                 pendingPowerAction = nil
             }
-            Button("Cancel", role: .cancel) {
+            Button("取消", role: .cancel) {
                 pendingPowerAction = nil
             }
         } message: {
@@ -248,7 +248,9 @@ struct ServerCardView: View {
 
     private var canTrustHost: Bool {
         guard case .failed(let message) = connectionState else { return false }
-        return message.contains("Fingerprint:") && !message.hasPrefix("Jump host ")
+        let isFingerprint = message.contains("Fingerprint:") || message.contains("指纹：")
+        let isJumpHost = message.hasPrefix("Jump host ") || message.hasPrefix("跳板")
+        return isFingerprint && !isJumpHost
     }
 
     @ViewBuilder
@@ -257,15 +259,15 @@ struct ServerCardView: View {
         case .idle:
             Text(
                 server.statusURL == nil
-                    ? "Connect over SSH to load server status."
-                    : "Ready to refresh the HTTP monitor."
+                    ? "通过 SSH 连接以加载服务器状态。"
+                    : "可以刷新 HTTP 监控。"
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
         case .loading:
             HStack(spacing: DesignTokens.spaceS) {
                 ProgressView()
-                Text("Loading monitor status...")
+                Text("正在加载监控状态...")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
             }
@@ -278,19 +280,19 @@ struct ServerCardView: View {
                     systemImage: "cpu"
                 )
                 StatusMetricRow(
-                    title: "Memory",
+                    title: "内存",
                     value: status.memory,
                     fraction: status.memoryFraction,
                     systemImage: "memorychip"
                 )
                 StatusMetricRow(
-                    title: "Disk",
+                    title: "磁盘",
                     value: status.disk,
                     fraction: status.diskFraction,
                     systemImage: "internaldrive"
                 )
                 StatusMetricRow(
-                    title: "Network",
+                    title: "网络",
                     value: status.network,
                     fraction: nil,
                     systemImage: "network"
@@ -301,7 +303,7 @@ struct ServerCardView: View {
                 Image(systemName: "wifi.exclamationmark")
                     .foregroundStyle(.red)
                 VStack(alignment: .leading, spacing: 4) {
-                    Text("Unable to load monitor status")
+                    Text("无法加载监控状态")
                         .font(.subheadline.weight(.semibold))
                     Text(message)
                         .font(.caption)
@@ -309,7 +311,7 @@ struct ServerCardView: View {
                         .lineLimit(3)
                 }
                 Spacer(minLength: DesignTokens.spaceS)
-                Button("Retry", action: onRefresh)
+                Button("重试", action: onRefresh)
                     .buttonStyle(.bordered)
                     .controlSize(.small)
             }
@@ -326,11 +328,11 @@ struct ServerCardView: View {
     private var connectionTitle: String {
         switch connectionState {
         case .disconnected:
-            return "SSH disconnected"
+            return "SSH 未连接"
         case .connecting:
-            return "Connecting over SSH..."
+            return "正在通过 SSH 连接..."
         case .connected:
-            return "SSH connected"
+            return "SSH 已连接"
         case .failed(let message):
             return message
         }
@@ -366,15 +368,15 @@ struct ServerCardView: View {
 private extension ServerCardView.PowerAction {
     var confirmationTitle: String {
         switch self {
-        case .suspend: "Suspend"
-        case .shutdown: "Shutdown"
+        case .suspend: "挂起"
+        case .shutdown: "关机"
         }
     }
 
     var confirmationMessage: String {
         switch self {
-        case .suspend: "Suspend this server over SSH?"
-        case .shutdown: "Shut down this server over SSH?"
+        case .suspend: "通过 SSH 挂起此服务器？"
+        case .shutdown: "通过 SSH 关闭此服务器？"
         }
     }
 }

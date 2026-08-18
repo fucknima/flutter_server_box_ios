@@ -30,7 +30,7 @@ final class ServerDiscoveryViewModel: ObservableObject {
               (0...255).contains(end),
               start <= end,
               (1...65_535).contains(port) else {
-            errorMessage = "Enter a valid IPv4 prefix, host range, and port."
+            errorMessage = "请输入有效的 IPv4 前缀、主机范围和端口。"
             return
         }
 
@@ -121,39 +121,39 @@ struct ServerDiscoveryView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Scan") {
-                    TextField("IPv4 prefix", text: $prefix)
+                Section("扫描") {
+                    TextField("IPv4 前缀", text: $prefix)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     HStack {
-                        TextField("From", text: $startHost)
+                        TextField("起始", text: $startHost)
                             .keyboardType(.numberPad)
                         Text("-")
-                        TextField("To", text: $endHost)
+                        TextField("结束", text: $endHost)
                             .keyboardType(.numberPad)
                     }
-                    TextField("SSH port", text: $port)
+                    TextField("SSH 端口", text: $port)
                         .keyboardType(.numberPad)
-                    TextField("Username", text: $username)
+                    TextField("用户名", text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                     Button {
                         startScan()
                     } label: {
                         if viewModel.isScanning {
-                            ProgressView("Scanning...")
+                            ProgressView("扫描中...")
                         } else {
-                            Label("Start scan", systemImage: "dot.radiowaves.left.and.right")
+                            Label("开始扫描", systemImage: "dot.radiowaves.left.and.right")
                         }
                     }
                     .disabled(viewModel.isScanning)
                 }
 
-                Section("Discovered SSH hosts") {
+                Section("发现的 SSH 主机") {
                     if viewModel.isScanning && viewModel.discovered.isEmpty {
-                        ProgressView("Checking hosts...")
+                        ProgressView("正在检查主机...")
                     } else if viewModel.discovered.isEmpty {
-                        Text("No reachable SSH hosts found yet.")
+                        Text("暂未发现可连接的 SSH 主机。")
                             .foregroundStyle(.secondary)
                     } else {
                         ForEach(viewModel.discovered) { server in
@@ -168,7 +168,7 @@ struct ServerDiscoveryView: View {
                                 Label {
                                     VStack(alignment: .leading, spacing: 3) {
                                         Text(server.host)
-                                        Text("SSH port \(server.port)")
+                                        Text("SSH 端口 \(server.port)")
                                             .font(.caption)
                                             .foregroundStyle(.secondary)
                                     }
@@ -181,11 +181,11 @@ struct ServerDiscoveryView: View {
                     }
                 }
             }
-            .navigationTitle("Server discovery")
+            .navigationTitle("服务器发现")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button("关闭") {
                         viewModel.cancel()
                         dismiss()
                     }
@@ -200,15 +200,15 @@ struct ServerDiscoveryView: View {
                 }
             }
             .alert(
-                "Discovery error",
+                "发现错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown discovery error")
+                Text(viewModel.errorMessage ?? "未知发现错误")
             }
         }
         .tint(DesignTokens.accent)

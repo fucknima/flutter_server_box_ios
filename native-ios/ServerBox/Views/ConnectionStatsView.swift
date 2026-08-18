@@ -14,7 +14,7 @@ struct ConnectionStatsView: View {
     var body: some View {
         NavigationStack {
             content
-                .navigationTitle("Connection stats")
+                .navigationTitle("连接统计")
                 .navigationBarTitleDisplayMode(.inline)
                 .toolbar { toolbarContent }
                 .task {
@@ -27,18 +27,18 @@ struct ConnectionStatsView: View {
                     ConnectionStatsDetailView(stats: stats)
                 }
                 .confirmationDialog(
-                    "Delete all connection history?",
+                    "删除全部连接历史？",
                     isPresented: $isShowingClearConfirmation
                 ) {
-                    Button("Delete all", role: .destructive) {
+                    Button("全部删除", role: .destructive) {
                         Task { await viewModel.clearAll() }
                     }
-                    Button("Cancel", role: .cancel) {}
+                    Button("取消", role: .cancel) {}
                 } message: {
-                    Text("This removes connection records for every server.")
+                    Text("这会删除所有服务器的连接记录。")
                 }
                 .alert(
-                    "Connection stats error",
+                    "连接统计错误",
                     isPresented: Binding(
                         get: { viewModel.errorMessage != nil },
                         set: { isPresented in
@@ -46,9 +46,9 @@ struct ConnectionStatsView: View {
                         }
                     )
                 ) {
-                    Button("OK", role: .cancel) {}
+                    Button("好", role: .cancel) {}
                 } message: {
-                    Text(viewModel.errorMessage ?? "Unknown error")
+                    Text(viewModel.errorMessage ?? "未知错误")
                 }
         }
     }
@@ -56,13 +56,13 @@ struct ConnectionStatsView: View {
     @ViewBuilder
     private var content: some View {
         if viewModel.isLoading && viewModel.serverStats.isEmpty {
-            ProgressView("Loading connection stats...")
+            ProgressView("正在加载连接统计...")
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
         } else if viewModel.serverStats.isEmpty {
             ContentUnavailableView(
-                "No connection stats",
+                "暂无连接统计",
                 systemImage: "chart.bar.xaxis",
-                description: Text("SSH connection attempts will appear here.")
+                description: Text("SSH 连接尝试记录会显示在这里。")
             )
         } else {
             List {
@@ -85,7 +85,7 @@ struct ConnectionStatsView: View {
                         .listRowSeparator(.hidden)
                     }
                 } header: {
-                    Text("Servers")
+                    Text("服务器")
                 }
             }
             .listStyle(.insetGrouped)
@@ -95,7 +95,7 @@ struct ConnectionStatsView: View {
     @ToolbarContentBuilder
     private var toolbarContent: some ToolbarContent {
         ToolbarItem(placement: .topBarLeading) {
-            Button("Done") {
+            Button("完成") {
                 dismiss()
             }
         }
@@ -106,7 +106,7 @@ struct ConnectionStatsView: View {
                 Image(systemName: "arrow.clockwise")
             }
             .disabled(viewModel.isLoading)
-            .accessibilityLabel("Refresh connection stats")
+            .accessibilityLabel("刷新连接统计")
 
             Button {
                 Task { await viewModel.compact() }
@@ -118,7 +118,7 @@ struct ConnectionStatsView: View {
                 }
             }
             .disabled(viewModel.isCompacting)
-            .accessibilityLabel("Remove old connection records")
+            .accessibilityLabel("清理旧连接记录")
 
             Button(role: .destructive) {
                 isShowingClearConfirmation = true
@@ -126,7 +126,7 @@ struct ConnectionStatsView: View {
                 Image(systemName: "trash")
             }
             .disabled(viewModel.serverStats.isEmpty)
-            .accessibilityLabel("Delete all connection stats")
+            .accessibilityLabel("删除全部连接统计")
         }
     }
 }
@@ -140,7 +140,7 @@ private struct ConnectionStatsCard: View {
                 VStack(alignment: .leading, spacing: 4) {
                     Text(stats.serverName)
                         .font(.headline)
-                    Text("\(stats.totalAttempts) \(String(localized: "connection attempts"))")
+                    Text("\(stats.totalAttempts) \(String(localized: "次连接尝试"))")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -153,11 +153,11 @@ private struct ConnectionStatsCard: View {
             }
 
             HStack(spacing: DesignTokens.spaceL) {
-                StatCount(label: "Success", value: stats.successCount, color: .green)
-                StatCount(label: "Failed", value: stats.failureCount, color: .red)
+                StatCount(label: "成功", value: stats.successCount, color: .green)
+                StatCount(label: "失败", value: stats.failureCount, color: .red)
                 if let lastConnection = stats.recentConnections.first {
                     VStack(alignment: .leading, spacing: 3) {
-                        Text("Last attempt")
+                        Text("最近尝试")
                             .font(.caption)
                             .foregroundStyle(.secondary)
                         Text(lastConnection.timestamp, format: .dateTime.month().day().hour().minute())
@@ -170,8 +170,8 @@ private struct ConnectionStatsCard: View {
             if let lastSuccessTime = stats.lastSuccessTime,
                let lastFailureTime = stats.lastFailureTime {
                 HStack(spacing: DesignTokens.spaceS) {
-                    TimelineLabel(title: "Last success", date: lastSuccessTime, color: .green)
-                    TimelineLabel(title: "Last failure", date: lastFailureTime, color: .red)
+                    TimelineLabel(title: "最近成功", date: lastSuccessTime, color: .green)
+                    TimelineLabel(title: "最近失败", date: lastFailureTime, color: .red)
                 }
             }
 
@@ -250,14 +250,14 @@ private struct ConnectionStatsDetailView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Summary") {
-                    LabeledContent("Success rate", value: "\(Int((stats.successRate * 100).rounded()))%")
-                    LabeledContent("Total attempts", value: "\(stats.totalAttempts)")
-                    LabeledContent("Successful", value: "\(stats.successCount)")
-                    LabeledContent("Failed", value: "\(stats.failureCount)")
+                Section("概要") {
+                    LabeledContent("成功率", value: "\(Int((stats.successRate * 100).rounded()))%")
+                    LabeledContent("尝试次数", value: "\(stats.totalAttempts)")
+                    LabeledContent("成功次数", value: "\(stats.successCount)")
+                    LabeledContent("失败次数", value: "\(stats.failureCount)")
                 }
 
-                Section("Recent connections") {
+                Section("最近连接") {
                     ForEach(stats.recentConnections) { stat in
                         ConnectionStatRow(stat: stat, showsError: true)
                     }

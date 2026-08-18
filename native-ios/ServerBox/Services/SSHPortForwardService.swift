@@ -1024,17 +1024,17 @@ enum PortForwardServiceError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidConfiguration:
-            return "The port forwarding configuration is invalid."
+            return "端口转发配置无效。"
         case .localBindFailed(let message):
-            return "The local forwarding listener could not start: \(message)"
+            return "本地转发监听器无法启动：\(message)"
         case .localStillStopping:
-            return "The previous local forwarding listener is still stopping. Try again shortly."
+            return "上一个本地转发监听器仍在停止，请稍后重试。"
         case .remoteStartFailed(let message):
-            return "The remote forwarding listener could not start: \(message)"
+            return "远程转发监听器无法启动：\(message)"
         case .remoteStillStopping:
-            return "The previous remote forwarding listener is still stopping. Try again shortly."
+            return "上一个远程转发监听器仍在停止，请稍后重试。"
         case .invalidChannelData:
-            return "The SSH forwarding channel returned unsupported data."
+            return "SSH 转发通道返回了不支持的数据。"
         }
     }
 }

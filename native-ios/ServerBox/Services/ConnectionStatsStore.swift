@@ -127,9 +127,9 @@ enum ConnectionStatsStoreError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidData:
-            return "Connection statistics could not be read."
+            return "无法读取连接统计。"
         case .writeFailed:
-            return "Connection statistics could not be saved."
+            return "无法保存连接统计。"
         }
     }
 }

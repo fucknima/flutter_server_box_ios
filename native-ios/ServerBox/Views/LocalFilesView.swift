@@ -221,12 +221,12 @@ struct LocalFilesView: View {
                 }
 
                 if viewModel.isLoading && viewModel.entries.isEmpty {
-                    ProgressView("Loading files...")
+                    ProgressView("正在加载文件...")
                 } else if viewModel.entries.isEmpty {
                     ContentUnavailableView(
-                        "No local files",
+                        "暂无本地文件",
                         systemImage: "folder",
-                        description: Text("Import a file or create one from the Files tab.")
+                        description: Text("从文件标签页导入或创建文件。")
                     )
                 } else {
                     ForEach(viewModel.entries) { entry in
@@ -235,10 +235,10 @@ struct LocalFilesView: View {
                         }
                         .buttonStyle(.plain)
                         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
-                            Button("Delete", role: .destructive) {
+                            Button("删除", role: .destructive) {
                                 viewModel.delete(entry)
                             }
-                            Button("Rename") {
+                            Button("重命名") {
                                 fileToRename = entry
                             }
                             .tint(.orange)
@@ -247,31 +247,31 @@ struct LocalFilesView: View {
                 }
             }
             .navigationTitle(viewModel.directory.lastPathComponent.isEmpty
-                ? "Files"
+                ? "文件"
                 : viewModel.directory.lastPathComponent)
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("Settings")
+                    .accessibilityLabel("设置")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
                     Menu {
-                        Button("New folder", systemImage: "folder.badge.plus") {
+                        Button("新建文件夹", systemImage: "folder.badge.plus") {
                             createKind = .folder
                         }
-                        Button("New file", systemImage: "doc.badge.plus") {
+                        Button("新建文件", systemImage: "doc.badge.plus") {
                             createKind = .file
                         }
                         Divider()
-                        Button("Import file", systemImage: "square.and.arrow.down") {
+                        Button("导入文件", systemImage: "square.and.arrow.down") {
                             showingImporter = true
                         }
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Create or import file")
+                    .accessibilityLabel("创建或导入文件")
 
                     Button {
                         viewModel.load()
@@ -283,7 +283,7 @@ struct LocalFilesView: View {
                         }
                     }
                     .disabled(viewModel.isLoading)
-                    .accessibilityLabel("Refresh files")
+                    .accessibilityLabel("刷新文件")
                 }
             }
             .refreshable { viewModel.load() }
@@ -316,15 +316,15 @@ struct LocalFilesView: View {
                 }
             }
             .alert(
-                "File error",
+                "文件错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown file error")
+                Text(viewModel.errorMessage ?? "未知文件错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -374,16 +374,16 @@ private struct RenameLocalFileView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name", text: $name)
+                TextField("名称", text: $name)
             }
-            .navigationTitle("Rename")
+            .navigationTitle("重命名")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") {
+                    Button("保存") {
                         onRename(name)
                         dismiss()
                     }
@@ -399,7 +399,7 @@ private enum LocalCreateKind: String, Identifiable {
     case file
 
     var id: String { rawValue }
-    var title: LocalizedStringKey { self == .folder ? "New folder" : "New file" }
+    var title: LocalizedStringKey { self == .folder ? "新建文件夹" : "新建文件" }
 }
 
 private struct LocalCreateItemView: View {
@@ -411,7 +411,7 @@ private struct LocalCreateItemView: View {
     var body: some View {
         NavigationStack {
             Form {
-                TextField("Name", text: $name)
+                TextField("名称", text: $name)
                     .textInputAutocapitalization(.never)
                     .autocorrectionDisabled()
             }
@@ -419,10 +419,10 @@ private struct LocalCreateItemView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") {
+                    Button("创建") {
                         onCreate(name)
                         dismiss()
                     }
@@ -444,7 +444,7 @@ private struct LocalTextEditorView: View {
         NavigationStack {
             Group {
                 if isLoading {
-                    ProgressView("Loading file...")
+                    ProgressView("正在加载文件...")
                 } else {
                     TextEditor(text: $content)
                         .font(.system(.body, design: .monospaced))
@@ -457,24 +457,24 @@ private struct LocalTextEditorView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("保存") { save() }
                         .disabled(isLoading)
                 }
             }
             .task { load() }
             .alert(
-                "File error",
+                "文件错误",
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { if !$0 { errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Unknown file error")
+                Text(errorMessage ?? "未知文件错误")
             }
         }
     }
@@ -511,11 +511,11 @@ private enum LocalFileError: LocalizedError {
     var errorDescription: String? {
         switch self {
         case .fileTooLarge:
-            "This file is too large to edit on the device."
+            "此文件过大，无法在设备上编辑。"
         case .invalidName:
-            "Use a file name without path separators or parent-directory components."
+            "文件名不能包含路径分隔符或上级目录组件。"
         case .createFailed:
-            "The local file could not be created."
+            "无法创建本地文件。"
         }
     }
 }

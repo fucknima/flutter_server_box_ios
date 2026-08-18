@@ -241,25 +241,25 @@ enum ServerConfigurationError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .emptyName:
-            return "Enter a server name."
+            return "请输入服务器名称。"
         case .emptyHost:
-            return "Enter a server host."
+            return "请输入服务器主机。"
         case .invalidPort:
-            return "The port must be between 1 and 65535."
+            return "端口必须在 1 到 65535 之间。"
         case .emptyUsername:
-            return "Enter an SSH username."
+            return "请输入 SSH 用户名。"
         case .invalidStatusURL:
-            return "Enter a valid HTTP or HTTPS status URL."
+            return "请输入有效的 HTTP 或 HTTPS 状态 URL。"
         case .invalidLogoURL:
-            return "Enter a valid HTTP or HTTPS logo URL."
+            return "请输入有效的 HTTP 或 HTTPS 图标 URL。"
         case .missingCredential:
-            return "Enter a password or private key for this server."
+            return "请为此服务器输入密码或私钥。"
         case .jumpAndProxyConflict:
-            return "A jump host and a proxy command cannot be used together."
+            return "跳板机和代理命令不能同时使用。"
         case .proxyCommandUnsupported:
-            return "Proxy commands are not supported on iOS. Clear the proxy command or use jump hosts."
+            return "iOS 不支持代理命令，请清除代理命令或改用跳板机。"
         case .duplicateBackupServer:
-            return "The backup contains duplicate server identifiers."
+            return "备份中包含重复的服务器标识。"
         }
     }
 }

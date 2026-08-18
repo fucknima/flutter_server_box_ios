@@ -153,9 +153,9 @@ enum KeychainError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidValue:
-            return "The credential could not be encoded."
+            return "凭据无法编码。"
         case .unhandledStatus(let status):
-            return "Keychain operation failed (\(status))."
+            return "钥匙串操作失败（\(status)）。"
         }
     }
 }

@@ -70,9 +70,9 @@ enum PortForwardStoreError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidData:
-            return "Saved port forwarding rules could not be read."
+            return "无法读取已保存的端口转发规则。"
         case .writeFailed:
-            return "Port forwarding rules could not be saved."
+            return "无法保存端口转发规则。"
         }
     }
 }

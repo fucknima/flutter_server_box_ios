@@ -11,35 +11,35 @@ struct IperfView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Host", text: $host)
+                    TextField("主机", text: $host)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("Port", text: $port)
+                    TextField("端口", text: $port)
                         .keyboardType(.numberPad)
                 } header: {
-                    Text("iperf server")
+                    Text("iperf 服务器")
                 }
             }
             .navigationTitle("iperf")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Run") { run() }
+                    Button("运行") { run() }
                 }
             }
             .alert(
-                "iperf error",
+                "iperf 错误",
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { if !$0 { errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Enter a host and a valid port.")
+                Text(errorMessage ?? "请输入主机和有效端口。")
             }
         }
         .tint(DesignTokens.accent)
@@ -48,7 +48,7 @@ struct IperfView: View {
     private func run() {
         let host = host.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !host.isEmpty, let port = Int(port), (1...65_535).contains(port) else {
-            errorMessage = "Enter a host and a valid port."
+            errorMessage = "请输入主机和有效端口。"
             return
         }
         let escapedHost = host.replacingOccurrences(of: "'", with: "'\\''")

@@ -150,6 +150,6 @@ enum SSHStatusError: LocalizedError, Equatable, Sendable {
     case invalidOutput
 
     var errorDescription: String? {
-        "The server returned an unreadable SSH status response."
+        "服务器返回了无法读取的 SSH 状态响应。"
     }
 }

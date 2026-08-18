@@ -89,21 +89,21 @@ struct ServerEditorView: View {
         NavigationStack {
             Form {
                 Section {
-                    TextField("Display name", text: $name)
+                    TextField("显示名称", text: $name)
                         .textInputAutocapitalization(.words)
 
-                    TextField("Host or IP address", text: $host)
+                    TextField("主机或 IP 地址", text: $host)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    TextField("Port", text: $portText)
+                    TextField("端口", text: $portText)
                         .keyboardType(.numberPad)
 
-                    TextField("Username", text: $username)
+                    TextField("用户名", text: $username)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
-                    Picker("Authentication", selection: $authenticationMethod) {
+                    Picker("认证方式", selection: $authenticationMethod) {
                         ForEach(AuthenticationMethod.allCases) { method in
                             Text(method.title).tag(method)
                         }
@@ -111,9 +111,9 @@ struct ServerEditorView: View {
 
                     credentialFields
                 } header: {
-                    Text("SSH connection")
+                    Text("SSH 连接")
                 } footer: {
-                    Text("Credentials are stored in the iOS Keychain and are never written to the server file.")
+                    Text("凭据存储在 iOS 钥匙串中，不会写入服务器配置文件。")
                 }
 
                 Section {
@@ -127,43 +127,43 @@ struct ServerEditorView: View {
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("Status monitor (optional)")
+                    Text("状态监控（可选）")
                 } footer: {
-                    Text("If supplied, the existing HTTP monitor is refreshed alongside the SSH connection. The logo URL may contain {DIST} and {BRIGHT}, which are replaced with the server distribution and theme brightness.")
+                    Text("填写后，HTTP 监控会与 SSH 连接一起刷新。Logo URL 可包含 {DIST} 和 {BRIGHT}，它们会被替换为服务器发行版和主题亮度。")
                 }
 
                 Section {
-                    Toggle("Connect automatically", isOn: $autoConnect)
-                    Toggle("Enabled", isOn: $isEnabled)
-                    Text("Unknown SSH host keys require an explicit trust action from the server card.")
+                    Toggle("自动连接", isOn: $autoConnect)
+                    Toggle("启用", isOn: $isEnabled)
+                    Text("未知 SSH 主机密钥需要在服务器卡片上明确确认信任。")
                         .font(.footnote)
                         .foregroundStyle(.secondary)
                 } header: {
-                    Text("Connection")
+                    Text("连接")
                 }
 
-                Section("Tags") {
-                    TextField("Comma-separated tags", text: $tagsText)
+                Section("标签") {
+                    TextField("以逗号分隔的标签", text: $tagsText)
                 }
 
                 Section {
-                    Picker("Remote system", selection: $customSystem) {
-                        Text("Automatic").tag(RemoteSystem.automatic)
+                    Picker("远程系统", selection: $customSystem) {
+                        Text("自动").tag(RemoteSystem.automatic)
                         Text("Unix").tag(RemoteSystem.unix)
                         Text("Windows").tag(RemoteSystem.windows)
                     }
 
-                    TextField("Alternate host", text: $alternateHost)
+                    TextField("备用主机", text: $alternateHost)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
-                    TextField("Alternate port", text: $alternatePortText)
+                    TextField("备用端口", text: $alternatePortText)
                         .keyboardType(.numberPad)
-                    TextField("Alternate username", text: $alternateUsername)
+                    TextField("备用用户名", text: $alternateUsername)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
 
                     if !availableServers.isEmpty {
-                        DisclosureGroup("Jump hosts") {
+                        DisclosureGroup("跳板主机") {
                             ForEach(availableServers) { jumpServer in
                                 Toggle(jumpServer.name, isOn: Binding(
                                     get: { selectedJumpServerIDs.contains(jumpServer.id) },
@@ -185,21 +185,21 @@ struct ServerEditorView: View {
                         }
                     }
 
-                    TextField("Proxy command", text: $proxyCommand, axis: .vertical)
+                    TextField("代理命令", text: $proxyCommand, axis: .vertical)
                         .textInputAutocapitalization(.never)
                         .autocorrectionDisabled()
                 } header: {
-                    Text("Advanced connection")
+                    Text("高级连接")
                 } footer: {
-                    Text("Jump hosts are tried in order. Proxy commands are not supported on iOS.")
+                    Text("跳板主机按顺序尝试。iOS 上不支持代理命令。")
                 }
 
                 Section {
-                    Toggle("Enable Proxmox tools", isOn: $pveEnabled)
+                    Toggle("启用 Proxmox 工具", isOn: $pveEnabled)
                 } header: {
-                    Text("Remote tools")
+                    Text("远程工具")
                 } footer: {
-                    Text("Only enable this for a server that exposes the Proxmox pvesh command.")
+                    Text("仅当服务器提供 Proxmox pvesh 命令时启用。")
                 }
 
                 Section {
@@ -208,7 +208,7 @@ struct ServerEditorView: View {
                         .frame(minHeight: 80)
                         .overlay(alignment: .topLeading) {
                             if customCommandsText.isEmpty {
-                                Text("Custom commands JSON")
+                                Text("自定义命令 JSON")
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 8)
@@ -220,7 +220,7 @@ struct ServerEditorView: View {
                         .frame(minHeight: 80)
                         .overlay(alignment: .topLeading) {
                             if environmentText.isEmpty {
-                                Text("Environment JSON")
+                                Text("环境变量 JSON")
                                     .foregroundStyle(.secondary)
                                     .padding(.horizontal, 5)
                                     .padding(.vertical, 8)
@@ -228,9 +228,9 @@ struct ServerEditorView: View {
                             }
                         }
                 } header: {
-                    Text("Custom data")
+                    Text("自定义数据")
                 } footer: {
-                    Text("Both fields use a JSON object with string keys and values.")
+                    Text("两个字段都使用键值为字符串的 JSON 对象。")
                 }
 
                 if let validationMessage {
@@ -240,15 +240,15 @@ struct ServerEditorView: View {
                     }
                 }
             }
-            .navigationTitle(existingServer == nil ? "Add server" : "Edit server")
+            .navigationTitle(existingServer == nil ? "添加服务器" : "编辑服务器")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                         .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save", action: save)
+                    Button("保存", action: save)
                         .disabled(isSaving || name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty)
                 }
             }
@@ -287,14 +287,14 @@ struct ServerEditorView: View {
         switch authenticationMethod {
         case .password:
             SecureField(
-                existingServer == nil ? "Password" : "Password (leave blank to keep current)",
+                existingServer == nil ? "密码" : "密码（留空以保留当前密码）",
                 text: $secret
             )
         case .privateKey:
             VStack(alignment: .leading, spacing: 8) {
                 if !privateKeyRecords.isEmpty {
-                    Picker("Saved private key", selection: $selectedPrivateKeyID) {
-                        Text("Inline private key").tag(nil as String?)
+                    Picker("已保存的私钥", selection: $selectedPrivateKeyID) {
+                        Text("内嵌私钥").tag(nil as String?)
                         ForEach(privateKeyRecords) { record in
                             Text(record.name).tag(record.id as String?)
                         }
@@ -302,7 +302,7 @@ struct ServerEditorView: View {
                 }
                 if let selectedPrivateKeyID,
                    let record = privateKeyRecords.first(where: { $0.id == selectedPrivateKeyID }) {
-                    Label("Using \(record.name)", systemImage: "key.fill")
+                    Label("正在使用 \(record.name)", systemImage: "key.fill")
                         .foregroundStyle(.secondary)
                 } else {
                     TextEditor(text: $secret)
@@ -312,7 +312,7 @@ struct ServerEditorView: View {
                                 .strokeBorder(.secondary.opacity(0.25))
                         }
                 }
-                SecureField("Passphrase (optional)", text: $passphrase)
+                SecureField("口令（可选）", text: $passphrase)
             }
         }
     }
@@ -325,11 +325,11 @@ struct ServerEditorView: View {
         let trimmedUsername = username.trimmingCharacters(in: .whitespacesAndNewlines)
 
         guard !trimmedName.isEmpty else {
-            validationMessage = "Enter a name for this server."
+            validationMessage = "请输入此服务器的名称。"
             return
         }
         guard let port = Int(portText.trimmingCharacters(in: .whitespacesAndNewlines)) else {
-            validationMessage = "Enter a valid port."
+            validationMessage = "请输入有效端口。"
             return
         }
 
@@ -492,9 +492,9 @@ private enum AuthenticationMethod: String, CaseIterable, Identifiable {
     var title: String {
         switch self {
         case .password:
-            return "Password"
+            return "密码"
         case .privateKey:
-            return "Private key"
+            return "私钥"
         }
     }
 }
@@ -503,6 +503,6 @@ private enum ServerEditorError: LocalizedError {
     case invalidJSONMap
 
     var errorDescription: String? {
-        "Custom commands and environment must be valid JSON objects."
+        "自定义命令和环境变量必须是有效的 JSON 对象。"
     }
 }

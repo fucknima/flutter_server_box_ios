@@ -71,20 +71,20 @@ struct ProcessesView: View {
             }
             .overlay {
                 if viewModel.isLoading && viewModel.processes.isEmpty {
-                    ProgressView("Loading processes...")
+                    ProgressView("正在加载进程...")
                 } else if !viewModel.isLoading && viewModel.processes.isEmpty {
                     ContentUnavailableView(
-                        "No processes",
+                        "没有进程",
                         systemImage: "cpu",
-                        description: Text("The server returned no process rows.")
+                        description: Text("服务器没有返回进程记录。")
                     )
                 }
             }
-            .navigationTitle("Processes")
+            .navigationTitle("进程")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -97,14 +97,14 @@ struct ProcessesView: View {
                         }
                     }
                     .disabled(viewModel.isLoading)
-                    .accessibilityLabel("Refresh processes")
+                    .accessibilityLabel("刷新进程")
                 }
             }
             .task {
                 await viewModel.load()
             }
             .confirmationDialog(
-                "Terminate process?",
+                "终止进程？",
                 isPresented: Binding(
                     get: { viewModel.processToTerminate != nil },
                     set: { isPresented in
@@ -112,13 +112,13 @@ struct ProcessesView: View {
                     }
                 )
             ) {
-                Button("Terminate", role: .destructive) {
+                Button("终止", role: .destructive) {
                     Task { await viewModel.terminate(signal: .terminate) }
                 }
-                Button("Force kill", role: .destructive) {
+                Button("强制结束", role: .destructive) {
                     Task { await viewModel.terminate(signal: .kill) }
                 }
-                Button("Cancel", role: .cancel) {
+                Button("取消", role: .cancel) {
                     viewModel.processToTerminate = nil
                 }
             } message: {
@@ -127,7 +127,7 @@ struct ProcessesView: View {
                 }
             }
             .alert(
-                "Process error",
+                "进程错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { isPresented in
@@ -135,9 +135,9 @@ struct ProcessesView: View {
                     }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown process error")
+                Text(viewModel.errorMessage ?? "未知进程错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -157,7 +157,7 @@ struct ProcessesView: View {
             HStack(spacing: DesignTokens.spaceM) {
                 Label(process.user, systemImage: "person")
                 Label(String(format: "%.1f%% CPU", process.cpuPercent), systemImage: "cpu")
-                Label(String(format: "%.1f%% MEM", process.memoryPercent), systemImage: "memorychip")
+                Label(String(format: "%.1f%% 内存", process.memoryPercent), systemImage: "memorychip")
             }
             .font(.caption)
             .foregroundStyle(.secondary)

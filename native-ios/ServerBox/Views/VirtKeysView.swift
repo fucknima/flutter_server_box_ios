@@ -27,12 +27,12 @@ struct VirtKeysView: View {
                 }
                 .onMove(perform: move)
             } header: {
-                Text("SSH virtual keys")
+                Text("SSH 虚拟按键")
             } footer: {
-                Text("Enable or disable keys and sort them by dragging. Tap a key in the SSH terminal to send its sequence.")
+                Text("启用或禁用按键，并可拖动排序。在 SSH 终端中点击按键即可发送对应序列。")
             }
         }
-        .navigationTitle("Virtual keys")
+        .navigationTitle("虚拟按键")
         .navigationBarTitleDisplayMode(.inline)
         .toolbar {
             ToolbarItem(placement: .topBarTrailing) {

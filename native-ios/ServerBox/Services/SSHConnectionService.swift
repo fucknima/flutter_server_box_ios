@@ -94,6 +94,11 @@ private struct AcceptedHostKeyBatch: Sendable {
 actor SSHConnectionService {
     static let live = SSHConnectionService()
 
+    static let gbkEncoding: String.Encoding = {
+        let cfEncoding = CFStringEncoding(CFStringEncodings.GB_18030_2000.rawValue)
+        return String.Encoding(rawValue: CFStringConvertEncodingToNSStringEncoding(cfEncoding))
+    }()
+
     private var clients: [UUID: SSHClient] = [:]
     private var clientChains: [UUID: [SSHClient]] = [:]
     private var clientChainServerIDs: [UUID: [UUID]] = [:]
@@ -839,6 +844,9 @@ actor SSHConnectionService {
                     }
                 }
                 guard let content = String(data: data, encoding: .utf8) else {
+                    if let gbkContent = String(data: data, encoding: SSHConnectionService.gbkEncoding) {
+                        return gbkContent
+                    }
                     throw SFTPTransportError.notUTF8File
                 }
                 return content
@@ -1074,7 +1082,7 @@ actor SSHConnectionService {
 
     private struct TimeoutError: LocalizedError {
         var errorDescription: String? {
-            "Connection timed out."
+            "连接超时。"
         }
     }
 
@@ -1278,25 +1286,25 @@ enum SSHTransportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .notConnected:
-            return "The server is not connected."
+            return "服务器未连接。"
         case .jumpCycle:
-            return "The jump-host chain contains a cycle."
+            return "跳板机链路存在循环。"
         case .jumpServerMissing:
-            return "A configured jump host could not be found."
+            return "找不到配置的跳板机。"
         case .terminalNotOpen:
-            return "The SSH terminal is not open."
+            return "SSH 终端未打开。"
         case .hostKeyVerificationRequired:
-            return "This server has no trusted host key yet. Confirm its fingerprint before connecting."
+            return "此服务器还没有可信的主机密钥，连接前请确认其指纹。"
         case .hostKeyFingerprintRequired(let fingerprint):
-            return "This server is not trusted yet. Fingerprint: \(fingerprint)"
+            return "此服务器尚未受信任。指纹：\(fingerprint)"
         case .hostKeyMismatch(let fingerprint):
-            return "The SSH host key changed. Fingerprint: \(fingerprint)"
+            return "SSH 主机密钥已更改。指纹：\(fingerprint)"
         case .jumpHostFingerprintRequired(_, let fingerprint):
-            return "Jump host is not trusted yet. Fingerprint: \(fingerprint)"
+            return "跳板机尚未受信任。指纹：\(fingerprint)"
         case .jumpHostMismatch(_, let fingerprint):
-            return "The jump-host key changed. Fingerprint: \(fingerprint)"
+            return "跳板机密钥已更改。指纹：\(fingerprint)"
         case .unsupportedPrivateKey:
-            return "Only RSA and Ed25519 OpenSSH private keys are supported by the current transport."
+            return "当前传输层仅支持 RSA 和 Ed25519 的 OpenSSH 私钥。"
         }
     }
 }
@@ -1376,9 +1384,9 @@ enum ProcessControlError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidPID:
-            return "The process ID is invalid."
+            return "进程 ID 无效。"
         case .processChanged:
-            return "The process changed or is no longer available. Refresh the process list and try again."
+            return "进程已变更或不再可用，请刷新进程列表后重试。"
         }
     }
 }
@@ -1432,7 +1440,7 @@ enum SystemServiceControlError: LocalizedError, Equatable, Sendable {
     case invalidUnit
 
     var errorDescription: String? {
-        "The system service name is invalid."
+        "系统服务名称无效。"
     }
 }
 
@@ -1482,9 +1490,9 @@ enum ContainerControlError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .invalidIdentifier:
-            return "The container identifier is invalid."
+            return "容器标识无效。"
         case .runtimeUnavailable:
-            return "Neither Docker nor Podman is available on this server."
+            return "服务器上既没有 Docker 也没有 Podman。"
         }
     }
 }
@@ -1502,21 +1510,21 @@ enum SFTPTransportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .fileTooLarge:
-            return "This remote file is too large to preview on the device."
+            return "此远程文件过大，无法在设备上预览。"
         case .downloadDestinationUnavailable:
-            return "The downloaded file could not be created locally."
+            return "无法在本地创建下载文件。"
         case .invalidDownloadDestination:
-            return "The download destination must be a regular file inside the app's Documents folder."
+            return "下载目标必须是应用 Documents 文件夹内的普通文件。"
         case .downloadMadeNoProgress:
-            return "The SFTP server stopped returning data while downloading."
+            return "下载过程中 SFTP 服务器停止返回数据。"
         case .localFileUnavailable:
-            return "The local file is unavailable for upload."
+            return "本地文件无法用于上传。"
         case .uploadMadeNoProgress:
-            return "The local file stopped returning data while uploading."
+            return "上传过程中本地文件停止返回数据。"
         case .invalidPermissions:
-            return "Permissions must be an octal value between 0000 and 7777."
+            return "权限必须是 0000 到 7777 之间的八进制值。"
         case .notUTF8File:
-            return "This remote file is not a UTF-8 text file and cannot be edited here."
+            return "此远程文件不是 UTF-8 文本文件，无法在此编辑。"
         }
     }
 }
@@ -1529,11 +1537,11 @@ enum PVETransportError: LocalizedError, Equatable, Sendable {
     var errorDescription: String? {
         switch self {
         case .disabled:
-            return "Enable Proxmox tools for this server before using PVE."
+            return "使用 PVE 前请先为此服务器启用 Proxmox 工具。"
         case .invalidResponse:
-            return "The server did not return valid Proxmox resource data."
+            return "服务器未返回有效的 Proxmox 资源数据。"
         case .invalidResource:
-            return "The Proxmox resource identifier is invalid."
+            return "Proxmox 资源标识无效。"
         }
     }
 }

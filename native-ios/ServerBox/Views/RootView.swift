@@ -42,7 +42,7 @@ struct RootView: View {
     private var rootView: some View {
         NavigationStack {
             dashboard
-            .navigationTitle("Servers")
+            .navigationTitle("服务器")
             .toolbar { toolbarContent }
             .sheet(item: $editorRoute) { route in editorView(for: route) }
             .sheet(item: $terminalServer) { server in
@@ -202,7 +202,7 @@ struct RootView: View {
                 ConnectionStatsView(viewModel: ConnectionStatsViewModel())
             }
             .confirmationDialog(
-                "Delete this server?",
+                "删除此服务器？",
                 isPresented: Binding(
                     get: { serverToDelete != nil },
                     set: { isPresented in
@@ -210,7 +210,7 @@ struct RootView: View {
                     }
                 )
                 ) {
-                Button("Delete", role: .destructive) {
+                Button("删除", role: .destructive) {
                     if let serverToDelete {
                         viewModel.delete(serverToDelete)
                     }
@@ -220,7 +220,7 @@ struct RootView: View {
                 Text(serverToDelete?.name ?? "")
             }
             .confirmationDialog(
-                "Trust this SSH host?",
+                "信任此 SSH 主机？",
                 isPresented: Binding(
                     get: { serverToTrust != nil },
                     set: { isPresented in
@@ -230,8 +230,8 @@ struct RootView: View {
             ) {
                 Button(
                     serverToTrust?.knownHostKey == nil
-                        ? "Trust and connect"
-                        : "Replace host key"
+                        ? "信任并连接"
+                        : "替换主机密钥"
                 ) {
                     if let serverToTrust {
                         Task {
@@ -243,20 +243,20 @@ struct RootView: View {
                     }
                     serverToTrust = nil
                 }
-                Button("Cancel", role: .cancel) {
+                Button("取消", role: .cancel) {
                     serverToTrust = nil
                 }
             } message: {
                 if let server = serverToTrust,
                    case .failed(let message) = viewModel.connectionState(for: server),
                    message.contains("Fingerprint:") {
-                    Text("Verify this fingerprint before continuing:\n\n\(message)")
+                    Text("请先验证此指纹，再继续：\n\n\(message)")
                 } else {
-                    Text("Verify the server identity before trusting this host key.")
+                    Text("信任此主机密钥前，请先验证服务器身份。")
                 }
             }
             .alert(
-                "Storage error",
+                "存储错误",
                 isPresented: Binding(
                     get: { viewModel.storageError != nil },
                     set: { isPresented in
@@ -264,9 +264,9 @@ struct RootView: View {
                     }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.storageError ?? "Unknown error")
+                Text(viewModel.storageError ?? "未知错误")
             }
             .task(id: scenePhase) {
                 guard scenePhase == .active else { return }
@@ -359,7 +359,7 @@ struct RootView: View {
                 Button(action: onSettings) {
                     Image(systemName: "gearshape")
                 }
-                .accessibilityLabel("Settings")
+                .accessibilityLabel("设置")
             }
         }
         ToolbarItem(placement: .topBarTrailing) {
@@ -368,7 +368,7 @@ struct RootView: View {
             } label: {
                 Image(systemName: "dot.radiowaves.left.and.right")
             }
-            .accessibilityLabel("Discover servers")
+            .accessibilityLabel("发现服务器")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -376,7 +376,7 @@ struct RootView: View {
             } label: {
                 Image(systemName: "chart.bar.xaxis")
             }
-            .accessibilityLabel("Connection statistics")
+            .accessibilityLabel("连接统计")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -384,7 +384,7 @@ struct RootView: View {
             } label: {
                 Image(systemName: "plus")
             }
-            .accessibilityLabel("Add server")
+            .accessibilityLabel("添加服务器")
         }
         ToolbarItem(placement: .topBarTrailing) {
             Button {
@@ -397,7 +397,7 @@ struct RootView: View {
                 }
             }
             .disabled(viewModel.servers.isEmpty || viewModel.isRefreshing)
-            .accessibilityLabel("Refresh servers")
+            .accessibilityLabel("刷新服务器")
         }
     }
 
@@ -418,7 +418,7 @@ struct RootView: View {
     private var dashboardHeader: some View {
         VStack(alignment: .leading, spacing: DesignTokens.spaceS) {
             HStack(alignment: .firstTextBaseline) {
-                Text("Live monitor")
+                Text("实时监控")
                     .font(.system(.title2, design: .rounded, weight: .bold))
                 Spacer()
                 if viewModel.isLoading {
@@ -428,8 +428,8 @@ struct RootView: View {
 
             Text(
                 viewModel.servers.isEmpty
-                    ? "Add an SSH server to begin."
-                    : "SSH connections and optional monitor endpoints are managed here."
+                    ? "添加 SSH 服务器以开始使用。"
+                    : "在此管理 SSH 连接及可选监控端点。"
             )
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -513,15 +513,15 @@ private struct EmptyStateView: View {
                 .foregroundStyle(DesignTokens.accent)
 
             VStack(spacing: DesignTokens.spaceS) {
-                Text("No servers yet")
+                Text("暂无服务器")
                     .font(.headline)
-                Text("Connect an SSH server to open the native ServerBox tools.")
+                Text("连接 SSH 服务器以使用 ServerBox 工具。")
                     .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .multilineTextAlignment(.center)
             }
 
-            Button("Add server", action: onAdd)
+            Button("添加服务器", action: onAdd)
                 .buttonStyle(.borderedProminent)
         }
         .frame(maxWidth: .infinity)

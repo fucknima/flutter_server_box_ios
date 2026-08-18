@@ -87,12 +87,12 @@ struct PVEView: View {
             }
             .overlay {
                 if viewModel.isLoading && viewModel.resources.isEmpty {
-                    ProgressView("Loading PVE resources...")
+                    ProgressView("正在加载 PVE 资源...")
                 } else if !viewModel.isLoading && viewModel.resources.isEmpty {
                     ContentUnavailableView(
-                        "No PVE resources",
+                        "暂无 PVE 资源",
                         systemImage: "server.rack",
-                        description: Text("The server did not return Proxmox resources.")
+                        description: Text("服务器没有返回 Proxmox 资源。")
                     )
                 }
             }
@@ -100,7 +100,7 @@ struct PVEView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -113,35 +113,35 @@ struct PVEView: View {
                         }
                     }
                     .disabled(viewModel.isLoading)
-                    .accessibilityLabel("Refresh PVE resources")
+                    .accessibilityLabel("刷新 PVE 资源")
                 }
             }
             .task { await viewModel.load() }
             .confirmationDialog(
-                "Control PVE resource?",
+                "控制 PVE 资源？",
                 isPresented: Binding(
                     get: { viewModel.resourceToControl != nil },
                     set: { if !$0 { viewModel.resourceToControl = nil } }
                 )
             ) {
-                Button("Start") { Task { await viewModel.apply(.start) } }
-                Button("Stop", role: .destructive) { Task { await viewModel.apply(.stop) } }
-                Button("Reboot") { Task { await viewModel.apply(.reboot) } }
-                Button("Shutdown", role: .destructive) { Task { await viewModel.apply(.shutdown) } }
-                Button("Cancel", role: .cancel) {}
+                Button("启动") { Task { await viewModel.apply(.start) } }
+                Button("停止", role: .destructive) { Task { await viewModel.apply(.stop) } }
+                Button("重启") { Task { await viewModel.apply(.reboot) } }
+                Button("关机", role: .destructive) { Task { await viewModel.apply(.shutdown) } }
+                Button("取消", role: .cancel) {}
             } message: {
                 Text(viewModel.resourceToControl?.displayName ?? "")
             }
             .alert(
-                "PVE error",
+                "PVE 错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown PVE error")
+                Text(viewModel.errorMessage ?? "未知 PVE 错误")
             }
         }
         .tint(DesignTokens.accent)

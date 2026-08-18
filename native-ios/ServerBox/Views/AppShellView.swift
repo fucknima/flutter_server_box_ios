@@ -11,10 +11,10 @@ enum NativeHomeTab: String, CaseIterable, Identifiable, Hashable {
 
     var title: LocalizedStringKey {
         switch self {
-        case .servers: "Servers"
+        case .servers: "服务器"
         case .ssh: "SSH"
-        case .files: "Files"
-        case .snippets: "Snippets"
+        case .files: "文件"
+        case .snippets: "代码片段"
         case .agent: "Agent"
         }
     }
@@ -133,16 +133,16 @@ struct SSHTabView: View {
     var body: some View {
         NavigationStack {
             List {
-                Section("Active sessions") {
+                Section("活动会话") {
                     let connected = serverViewModel.servers.filter {
                         serverViewModel.connectionState(for: $0) == .connected
                     }
 
                     if connected.isEmpty {
                         ContentUnavailableView(
-                            "No active SSH sessions",
+                            "暂无活动 SSH 会话",
                             systemImage: "terminal",
-                            description: Text("Connect a server to open an SSH session.")
+                            description: Text("连接服务器以打开 SSH 会话。")
                         )
                     } else {
                         ForEach(connected) { server in
@@ -158,7 +158,7 @@ struct SSHTabView: View {
                     }
                 }
 
-                Section("Servers") {
+                Section("服务器") {
                     ForEach(serverViewModel.servers) { server in
                         let connectionState = serverViewModel.connectionState(for: server)
                         if connectionState != .connected {
@@ -185,7 +185,7 @@ struct SSHTabView: View {
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("Settings")
+                    .accessibilityLabel("设置")
                 }
             }
             .refreshable { await serverViewModel.refreshAll() }
@@ -241,16 +241,16 @@ private struct SSHServerRow: View {
         .buttonStyle(.plain)
         .swipeActions(edge: .trailing, allowsFullSwipe: false) {
             if let onDisconnect {
-                Button("Disconnect", role: .destructive, action: onDisconnect)
+                Button("断开连接", role: .destructive, action: onDisconnect)
             }
         }
     }
 
     private var actionTitle: LocalizedStringKey {
         switch state {
-        case .disconnected, .failed: "Connect"
-        case .connecting: "Connecting"
-        case .connected: "Open"
+        case .disconnected, .failed: "连接"
+        case .connecting: "连接中"
+        case .connected: "打开"
         }
     }
 

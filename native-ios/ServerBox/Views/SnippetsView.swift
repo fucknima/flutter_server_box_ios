@@ -26,8 +26,8 @@ struct SnippetsView: View {
             List {
                 if !viewModel.tags.isEmpty {
                     Section {
-                        Picker("Tag", selection: $selectedTag) {
-                            Text("All").tag("All")
+                        Picker("标签", selection: $selectedTag) {
+                            Text("全部").tag("All")
                             ForEach(viewModel.tags, id: \.self) { tag in
                                 Text(tag).tag(tag)
                             }
@@ -37,12 +37,12 @@ struct SnippetsView: View {
                 }
 
                 if viewModel.isLoading && viewModel.snippets.isEmpty {
-                    ProgressView("Loading snippets...")
+                    ProgressView("正在加载片段...")
                 } else if filteredSnippets.isEmpty {
                     ContentUnavailableView(
-                        searchText.isEmpty ? "No snippets" : "No matching snippets",
+                        searchText.isEmpty ? "暂无片段" : "没有匹配的片段",
                         systemImage: "chevron.left.forwardslash.chevron.right",
-                        description: Text("Create reusable commands for your SSH sessions.")
+                        description: Text("为你的 SSH 会话创建可复用的命令。")
                     )
                 } else {
                     ForEach(filteredSnippets) { snippet in
@@ -56,25 +56,25 @@ struct SnippetsView: View {
                             Button {
                                 snippetToRun = snippet
                             } label: {
-                                Label("Run on server", systemImage: "play.fill")
+                                Label("在服务器上运行", systemImage: "play.fill")
                             }
                             Button(role: .destructive) {
                                 Task { await viewModel.delete(snippet) }
                             } label: {
-                                Label("Delete", systemImage: "trash")
+                                Label("删除", systemImage: "trash")
                             }
                         }
                     }
                 }
             }
-            .navigationTitle("Snippets")
-            .searchable(text: $searchText, prompt: "Search snippets")
+            .navigationTitle("片段")
+            .searchable(text: $searchText, prompt: "搜索片段")
             .toolbar {
                 ToolbarItem(placement: .topBarLeading) {
                     Button(action: onSettings) {
                         Image(systemName: "gearshape")
                     }
-                    .accessibilityLabel("Settings")
+                    .accessibilityLabel("设置")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -82,7 +82,7 @@ struct SnippetsView: View {
                     } label: {
                         Image(systemName: "plus")
                     }
-                    .accessibilityLabel("Add snippet")
+                    .accessibilityLabel("添加片段")
                 }
             }
             .refreshable { await viewModel.load() }
@@ -104,15 +104,15 @@ struct SnippetsView: View {
                 )
             }
             .alert(
-                "Snippet error",
+                "片段错误",
                 isPresented: Binding(
                     get: { viewModel.errorMessage != nil },
                     set: { if !$0 { viewModel.errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "Unknown snippet error")
+                Text(viewModel.errorMessage ?? "未知片段错误")
             }
         }
         .tint(DesignTokens.accent)
@@ -196,13 +196,13 @@ private struct SnippetEditorView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Snippet") {
-                    TextField("Name", text: $name)
-                    TextField("Note", text: $note, axis: .vertical)
-                    TextField("Tags, separated by commas", text: $tags)
+                Section("片段") {
+                    TextField("名称", text: $name)
+                    TextField("备注", text: $note, axis: .vertical)
+                    TextField("标签，以逗号分隔", text: $tags)
                 }
 
-                Section("Command") {
+                Section("命令") {
                     TextEditor(text: $script)
                         .font(.system(.body, design: .monospaced))
                         .frame(minHeight: 140)
@@ -211,7 +211,7 @@ private struct SnippetEditorView: View {
                 }
 
                 if !servers.isEmpty {
-                    Section("Auto-run servers") {
+                    Section("自动运行服务器") {
                         ForEach(servers) { server in
                             Toggle(server.name, isOn: Binding(
                                 get: { selectedServers.contains(server.id) },
@@ -227,15 +227,15 @@ private struct SnippetEditorView: View {
                     }
                 }
             }
-            .navigationTitle(existingSnippet == nil ? "Add snippet" : "Edit snippet")
+            .navigationTitle(existingSnippet == nil ? "添加片段" : "编辑片段")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
+                    Button("取消") { dismiss() }
                         .disabled(isSaving)
                 }
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("Save") { save() }
+                    Button("保存") { save() }
                         .disabled(isSaving)
                 }
             }
@@ -279,47 +279,47 @@ private struct SnippetRunView: View {
     var body: some View {
         NavigationStack {
             Form {
-                Section("Command") {
+                Section("命令") {
                     Text(snippet.script)
                         .font(.system(.body, design: .monospaced))
                         .textSelection(.enabled)
                 }
-                Section("Server") {
-                    Picker("Run on", selection: $selectedServerID) {
-                        Text("Select a server").tag(UUID?.none)
+                Section("服务器") {
+                    Picker("运行于", selection: $selectedServerID) {
+                        Text("选择服务器").tag(UUID?.none)
                         ForEach(servers) { server in
                             Text(server.name).tag(UUID?.some(server.id))
                         }
                     }
-                    Button("Run") { run() }
+                    Button("运行") { run() }
                         .disabled(selectedServerID == nil || isRunning)
                 }
                 if let output {
-                    Section("Output") {
+                    Section("输出") {
                         Text(output)
                             .font(.system(.footnote, design: .monospaced))
                             .textSelection(.enabled)
                     }
                 }
             }
-            .navigationTitle("Run snippet")
+            .navigationTitle("运行片段")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") { dismiss() }
+                    Button("关闭") { dismiss() }
                 }
             }
             .overlay { if isRunning { ProgressView() } }
             .alert(
-                "Run error",
+                "运行错误",
                 isPresented: Binding(
                     get: { errorMessage != nil },
                     set: { if !$0 { errorMessage = nil } }
                 )
             ) {
-                Button("OK", role: .cancel) {}
+                Button("好", role: .cancel) {}
             } message: {
-                Text(errorMessage ?? "Unknown run error")
+                Text(errorMessage ?? "未知运行错误")
             }
         }
     }

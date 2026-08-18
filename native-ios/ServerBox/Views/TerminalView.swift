@@ -23,6 +23,8 @@ final class TerminalViewModel: ObservableObject {
     private var lastTerminalSize: (columns: Int, rows: Int)?
     private var requestedTerminalSize: (columns: Int, rows: Int)?
     private var historyCursor = 0
+    private var lastSendAt = Date.distantPast
+    private var lastSentLine = ""
 
     init(
         openSession: @escaping () async throws -> SSHTerminalSession,
@@ -89,12 +91,19 @@ final class TerminalViewModel: ObservableObject {
         guard state == .connected else { return }
         let line = input
         input = ""
-        if !line.isEmpty {
-            commandHistory.removeAll { $0 == line }
-            commandHistory.append(line)
-            if commandHistory.count > 100 {
-                commandHistory.removeFirst(commandHistory.count - 100)
-            }
+        if line.isEmpty {
+            return
+        }
+        let now = Date()
+        if line == lastSentLine, now.timeIntervalSince(lastSendAt) < 0.4 {
+            return
+        }
+        lastSendAt = now
+        lastSentLine = line
+        commandHistory.removeAll { $0 == line }
+        commandHistory.append(line)
+        if commandHistory.count > 100 {
+            commandHistory.removeFirst(commandHistory.count - 100)
         }
         historyCursor = commandHistory.count
         await send(line + "\n")
@@ -208,11 +217,11 @@ struct TerminalView: View {
                 }
             }
             .background(Color.black)
-            .navigationTitle("SSH Terminal")
+            .navigationTitle("SSH 终端")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("Close") {
+                    Button("关闭") {
                         Task {
                             await viewModel.close()
                             dismiss()
@@ -226,18 +235,18 @@ struct TerminalView: View {
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        Button("Clear output", systemImage: "trash") {
+                        Button("清空输出", systemImage: "trash") {
                             viewModel.clearOutput()
                         }
                         if case .failed = viewModel.state {
-                            Button("Retry", systemImage: "arrow.clockwise") {
+                            Button("重试", systemImage: "arrow.clockwise") {
                                 Task { await viewModel.retry() }
                             }
                         }
                     } label: {
                         Image(systemName: "ellipsis.circle")
                     }
-                    .accessibilityLabel("Terminal actions")
+                    .accessibilityLabel("终端操作")
                 }
             }
             .task {
@@ -256,7 +265,7 @@ struct TerminalView: View {
             ScrollView {
                 Group {
                     if viewModel.output.isEmpty {
-                        Text("Connecting...")
+                        Text("连接中...")
                     } else {
                         Text(verbatim: viewModel.output)
                     }
@@ -310,7 +319,7 @@ struct TerminalView: View {
 
     private var commandBar: some View {
         HStack(spacing: DesignTokens.spaceS) {
-            TextField("Command", text: $viewModel.input)
+            TextField("命令", text: $viewModel.input)
                 .textFieldStyle(.roundedBorder)
                 .focused($inputFocused)
                 .submitLabel(.send)
@@ -334,15 +343,15 @@ struct TerminalView: View {
             .disabled(viewModel.state != .connected)
 
                 Menu {
-                    Button("Previous command") { viewModel.previousCommand() }
-                    Button("Next command") { viewModel.nextCommand() }
+                    Button("上一条命令") { viewModel.previousCommand() }
+                    Button("下一条命令") { viewModel.nextCommand() }
                     Divider()
                     Button("Tab") { Task { await viewModel.sendControl("\t") } }
                     Button("Escape") { Task { await viewModel.sendControl("\u{1B}") } }
                     Button("Ctrl-D") { Task { await viewModel.sendControl("\u{4}") } }
                     Button("Ctrl-L") { Task { await viewModel.sendControl("\u{C}") } }
-                    Button("Arrow up") { Task { await viewModel.sendControl("\u{1B}[A") } }
-                    Button("Arrow down") { Task { await viewModel.sendControl("\u{1B}[B") } }
+                    Button("上箭头") { Task { await viewModel.sendControl("\u{1B}[A") } }
+                    Button("下箭头") { Task { await viewModel.sendControl("\u{1B}[B") } }
                 } label: {
                 Image(systemName: "keyboard")
             }
@@ -355,13 +364,13 @@ struct TerminalView: View {
     private var stateTitle: LocalizedStringKey {
         switch viewModel.state {
         case .connecting:
-            return "Connecting"
+            return "连接中"
         case .connected:
-            return "Connected"
+            return "已连接"
         case .disconnected:
-            return "Disconnected"
+            return "已断开"
         case .failed:
-            return "Failed"
+            return "连接失败"
         }
     }
 
