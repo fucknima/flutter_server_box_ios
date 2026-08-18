@@ -731,15 +731,28 @@ final class ServerListViewModel: ObservableObject {
     }
 
     func suspend(_ server: ServerConfiguration) async throws {
-        try await SSHConnectionService.live.execute(Self.suspendCommand, on: server.id)
+        try await SSHConnectionService.live.runScriptFunction(
+            "SbSuspend",
+            flag: "sp",
+            on: server
+        )
     }
 
     func shutdown(_ server: ServerConfiguration) async throws {
-        try await SSHConnectionService.live.execute(Self.shutdownCommand, on: server.id)
+        try await SSHConnectionService.live.runScriptFunction(
+            "SbShutdown",
+            flag: "sd",
+            on: server
+        )
     }
 
-    private static let suspendCommand = "systemctl suspend"
-    private static let shutdownCommand = "shutdown -h now"
+    func reboot(_ server: ServerConfiguration) async throws {
+        try await SSHConnectionService.live.runScriptFunction(
+            "SbReboot",
+            flag: "r",
+            on: server
+        )
+    }
 
     func openTerminal(for server: ServerConfiguration) async throws -> SSHTerminalSession {
         try await SSHConnectionService.live.openTerminal(serverID: server.id)
@@ -806,7 +819,7 @@ final class ServerListViewModel: ObservableObject {
     }
 
     func listProcesses(for server: ServerConfiguration) async throws -> [RemoteProcess] {
-        try await SSHConnectionService.live.listProcesses(serverID: server.id)
+        try await SSHConnectionService.live.listProcesses(server: server)
     }
 
     func terminateProcess(

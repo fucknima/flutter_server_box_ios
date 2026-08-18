@@ -105,6 +105,8 @@ actor SSHConnectionService {
     private var connectionTokens: [UUID: UUID] = [:]
     private var acceptedHostKeys: [UUID: AcceptedHostKeyBatch] = [:]
     private var terminalSessions: [UUID: SSHTerminalSession] = [:]
+    private var processSamples: [UUID: [Int: (readBytes: Int, writeBytes: Int)]] = [:]
+    private var processSampleTimes: [UUID: TimeInterval] = [:]
     private let disconnectStream: AsyncStream<SSHDisconnectEvent>
     private let disconnectContinuation: AsyncStream<SSHDisconnectEvent>.Continuation
 
@@ -811,6 +813,19 @@ actor SSHConnectionService {
         }
     }
 
+    func runScriptFunction(
+        _ function: String,
+        flag: String,
+        on server: ServerConfiguration
+    ) async throws {
+        let location = try await SSHStatusService.live.scriptLocation(for: server)
+        _ = try await execute(
+            SrvBoxScript.execCommand(function, at: location, flag: flag),
+            on: server.id,
+            maxResponseSize: 64 * 1024
+        )
+    }
+
     func openTerminal(
         serverID: UUID,
         columns: Int = 100,
@@ -945,13 +960,36 @@ actor SSHConnectionService {
         return path.hasPrefix("/") ? path : fallback
     }
 
-    func listProcesses(serverID: UUID) async throws -> [RemoteProcess] {
+    func listProcesses(
+        server: ServerConfiguration
+    ) async throws -> [RemoteProcess] {
+        let location = try await SSHStatusService.live.scriptLocation(for: server)
         let raw = try await execute(
-            "ps -eo pid=,user=,%cpu=,%mem=,comm=,args= --sort=-%cpu 2>/dev/null || ps -axo pid,user,%cpu,%mem,command",
-            on: serverID,
-            maxResponseSize: 1024 * 1024
+            SrvBoxScript.execCommand("SbProcess", at: location, flag: "p"),
+            on: server.id,
+            maxResponseSize: 4 * 1024 * 1024
         )
-        return RemoteProcessParser.parse(raw)
+        let previous = processSamples[server.id] ?? [:]
+        let previousTime = processSampleTimes[server.id]
+        let processes = RemoteProcessParser.parse(
+            raw,
+            previous: previous,
+            elapsedSeconds: previousTime.map {
+                max(0, Date().timeIntervalSince1970 - $0)
+            }
+        )
+        var nextSamples: [Int: (readBytes: Int, writeBytes: Int)] = [:]
+        for process in processes {
+            if process.readBytes >= 0 || process.writeBytes >= 0 {
+                nextSamples[process.pid] = (
+                    readBytes: process.readBytes,
+                    writeBytes: process.writeBytes
+                )
+            }
+        }
+        processSamples[server.id] = nextSamples
+        processSampleTimes[server.id] = Date().timeIntervalSince1970
+        return processes
     }
 
     func terminateProcess(
@@ -1442,9 +1480,60 @@ struct RemoteProcess: Equatable, Identifiable, Sendable {
     let user: String
     let cpuPercent: Double
     let memoryPercent: Double
+    let vsz: String
+    let rss: String
+    let tty: String
+    let stat: String
+    let startId: String
+    let time: String
+    let readBytes: Int
+    let writeBytes: Int
+    let readSpeed: Double
+    let writeSpeed: Double
     let command: String
 
     var id: Int { pid }
+
+    init(
+        pid: Int,
+        user: String,
+        cpuPercent: Double,
+        memoryPercent: Double,
+        vsz: String = "",
+        rss: String = "",
+        tty: String = "",
+        stat: String = "",
+        startId: String = "",
+        time: String = "",
+        readBytes: Int = -1,
+        writeBytes: Int = -1,
+        readSpeed: Double = 0,
+        writeSpeed: Double = 0,
+        command: String
+    ) {
+        self.pid = pid
+        self.user = user
+        self.cpuPercent = cpuPercent
+        self.memoryPercent = memoryPercent
+        self.vsz = vsz
+        self.rss = rss
+        self.tty = tty
+        self.stat = stat
+        self.startId = startId
+        self.time = time
+        self.readBytes = readBytes
+        self.writeBytes = writeBytes
+        self.readSpeed = readSpeed
+        self.writeSpeed = writeSpeed
+        self.command = command
+    }
+
+    var rssKb: Double? {
+        guard let value = Double(rss.replacingOccurrences(of: ",", with: ".")) else {
+            return nil
+        }
+        return value
+    }
 }
 
 enum ProcessSignal: Int, CaseIterable, Sendable {
@@ -1465,32 +1554,85 @@ enum RemoteProcessParser {
         return (user: String(fields[0]), command: command)
     }
 
-    static func parse(_ raw: String) -> [RemoteProcess] {
+    static func parse(
+        _ raw: String,
+        previous: [Int: (readBytes: Int, writeBytes: Int)] = [:],
+        elapsedSeconds: Double? = nil
+    ) -> [RemoteProcess] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
-            let fields = line.split(
-                maxSplits: 5,
-                omittingEmptySubsequences: true,
-                whereSeparator: { $0 == " " || $0 == "\t" }
-            )
-            guard fields.count >= 5,
-                  let pid = Int(fields[0]),
-                  pid > 0,
-                  let cpu = Double(String(fields[2]).replacingOccurrences(of: ",", with: ".")),
-                  let memory = Double(String(fields[3]).replacingOccurrences(of: ",", with: ".")) else {
+            let tokens = line.split(separator: " ", omittingEmptySubsequences: true)
+            guard tokens.count >= 4,
+                  let pid = Int(tokens[0]),
+                  pid > 0 else {
                 return nil
             }
 
-            let command = fields.count > 5
-                ? String(fields[5])
-                : String(fields[4])
+            let user = String(tokens[1])
+            let cpu = Self.double(tokens, index: 2)
+            let memory = Self.double(tokens, index: 3)
+            let vsz = Self.string(tokens, index: 4)
+            let rss = Self.string(tokens, index: 5)
+            let tty = Self.string(tokens, index: 6)
+            let stat = Self.string(tokens, index: 7)
+            let time = Self.string(tokens, index: 8)
+            let startId = Self.string(tokens, index: 9)
+            let readBytes = Self.int(tokens, index: 10)
+            let writeBytes = Self.int(tokens, index: 11)
+
+            let commandStart = line.split(
+                whereSeparator: { $0 == " " || $0 == "\t" }
+            ).dropFirst(12).joined(separator: " ")
+            let command = commandStart.trimmingCharacters(in: .whitespacesAndNewlines)
+
+            var readSpeed = 0.0
+            var writeSpeed = 0.0
+            if let previousSample = previous[pid],
+               readBytes >= 0,
+               writeBytes >= 0,
+               let elapsedSeconds,
+               elapsedSeconds > 0 {
+                let readDelta = readBytes - previousSample.readBytes
+                let writeDelta = writeBytes - previousSample.writeBytes
+                readSpeed = readDelta >= 0
+                    ? Double(readDelta) / elapsedSeconds
+                    : 0
+                writeSpeed = writeDelta >= 0
+                    ? Double(writeDelta) / elapsedSeconds
+                    : 0
+            }
+
             return RemoteProcess(
                 pid: pid,
-                user: String(fields[1]),
+                user: user,
                 cpuPercent: cpu,
                 memoryPercent: memory,
+                vsz: vsz,
+                rss: rss,
+                tty: tty,
+                stat: stat,
+                startId: startId,
+                time: time,
+                readBytes: readBytes,
+                writeBytes: writeBytes,
+                readSpeed: readSpeed,
+                writeSpeed: writeSpeed,
                 command: command
             )
         }
+    }
+
+    private static func string(_ tokens: [Substring], index: Int) -> String {
+        index < tokens.count ? String(tokens[index]) : ""
+    }
+
+    private static func double(_ tokens: [Substring], index: Int) -> Double {
+        guard index < tokens.count else { return 0 }
+        return Double(String(tokens[index]).replacingOccurrences(of: ",", with: ".")) ?? 0
+    }
+
+    private static func int(_ tokens: [Substring], index: Int) -> Int {
+        guard index < tokens.count else { return -1 }
+        return Int(String(tokens[index]).replacingOccurrences(of: ",", with: ".")) ?? -1
     }
 }
 

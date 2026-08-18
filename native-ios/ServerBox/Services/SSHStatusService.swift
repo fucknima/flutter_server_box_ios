@@ -40,6 +40,10 @@ struct SSHStatusService: Sendable {
         lock.unlock()
     }
 
+    func scriptLocation(for server: ServerConfiguration) async throws -> SrvBoxScript.ScriptLocation {
+        try await ensureScript(for: server)
+    }
+
     private func parse(_ raw: String, for server: ServerConfiguration) throws -> ServerStatus {
         let sections = SrvBoxScript.parseScriptOutput(raw)
         guard !sections.isEmpty else {
