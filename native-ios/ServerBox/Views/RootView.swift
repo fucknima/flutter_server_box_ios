@@ -110,6 +110,12 @@ struct RootView: View {
                             action: action
                         )
                     },
+                    serviceStatus: { service in
+                        try await viewModel.fetchSystemServiceStatus(
+                            service,
+                            on: server
+                        )
+                    },
                     listContainers: {
                         try await viewModel.listContainers(for: server)
                     },
@@ -118,6 +124,18 @@ struct RootView: View {
                             container,
                             on: server,
                             action: action
+                        )
+                    },
+                    removeContainer: { container in
+                        try await viewModel.removeContainer(
+                            container,
+                            on: server
+                        )
+                    },
+                    containerLogs: { container in
+                        try await viewModel.fetchContainerLogs(
+                            container,
+                            on: server
                         )
                     }
                 )

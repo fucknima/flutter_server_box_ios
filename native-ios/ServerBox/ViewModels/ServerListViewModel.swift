@@ -190,6 +190,18 @@ final class ServerListViewModel: ObservableObject {
         if merged.dist.isEmpty {
             merged.dist = sshStatus.dist
         }
+        if merged.cpu.isEmpty {
+            merged.cpu = sshStatus.cpu
+        }
+        if merged.memory.isEmpty {
+            merged.memory = sshStatus.memory
+        }
+        if merged.disk.isEmpty {
+            merged.disk = sshStatus.disk
+        }
+        if merged.network.isEmpty {
+            merged.network = sshStatus.network
+        }
         return merged
     }
 
@@ -838,6 +850,36 @@ final class ServerListViewModel: ObservableObject {
             serverID: server.id,
             container: container,
             action: action
+        )
+    }
+
+    func removeContainer(
+        _ container: RemoteContainer,
+        on server: ServerConfiguration
+    ) async throws {
+        try await SSHConnectionService.live.removeDockerContainer(
+            serverID: server.id,
+            container: container
+        )
+    }
+
+    func fetchContainerLogs(
+        _ container: RemoteContainer,
+        on server: ServerConfiguration
+    ) async throws -> String {
+        try await SSHConnectionService.live.fetchContainerLogs(
+            serverID: server.id,
+            container: container
+        )
+    }
+
+    func fetchSystemServiceStatus(
+        _ service: RemoteSystemService,
+        on server: ServerConfiguration
+    ) async throws -> String {
+        try await SSHConnectionService.live.fetchSystemServiceStatus(
+            serverID: server.id,
+            unit: service.unit
         )
     }
 

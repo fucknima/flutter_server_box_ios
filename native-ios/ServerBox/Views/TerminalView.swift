@@ -25,6 +25,15 @@ final class TerminalViewModel: ObservableObject {
     private var historyCursor = 0
     private var lastSendAt = Date.distantPast
     private var lastSentLine = ""
+    private var lastResizeAt = Date.distantPast
+
+    deinit {
+        Task { @MainActor [weak self] in
+            guard let self else { return }
+            self.outputTask?.cancel()
+            await self.close()
+        }
+    }
 
     init(
         openSession: @escaping () async throws -> SSHTerminalSession,
@@ -137,6 +146,9 @@ final class TerminalViewModel: ObservableObject {
 
     func resize(columns: Int, rows: Int) async {
         guard columns > 0, rows > 0 else { return }
+        let now = Date()
+        guard now.timeIntervalSince(lastResizeAt) >= 0.3 else { return }
+        lastResizeAt = now
         requestedTerminalSize = (columns, rows)
         guard let session else { return }
         guard lastTerminalSize?.columns != columns || lastTerminalSize?.rows != rows else {
@@ -252,9 +264,6 @@ struct TerminalView: View {
             .task {
                 await viewModel.start()
                 inputFocused = true
-            }
-            .onDisappear {
-                Task { await viewModel.close() }
             }
         }
         .tint(DesignTokens.accent)

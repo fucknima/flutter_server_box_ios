@@ -965,6 +965,44 @@ actor SSHConnectionService {
         )
     }
 
+    func removeDockerContainer(
+        serverID: UUID,
+        container: RemoteContainer
+    ) async throws {
+        guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
+            throw ContainerControlError.invalidIdentifier
+        }
+        _ = try await execute(
+            "\(container.runtime) rm -f \(container.identifier)",
+            on: serverID
+        )
+    }
+
+    func fetchContainerLogs(
+        serverID: UUID,
+        container: RemoteContainer
+    ) async throws -> String {
+        guard RemoteContainerParser.isSafeIdentifier(container.identifier) else {
+            throw ContainerControlError.invalidIdentifier
+        }
+        return try await execute(
+            "\(container.runtime) logs --tail 200 \(container.identifier) 2>&1 || true",
+            on: serverID,
+            maxResponseSize: 1024 * 1024
+        )
+    }
+
+    func fetchSystemServiceStatus(
+        serverID: UUID,
+        unit: String
+    ) async throws -> String {
+        try await execute(
+            "systemctl status \(unit) --no-pager 2>&1 || true",
+            on: serverID,
+            maxResponseSize: 1024 * 1024
+        )
+    }
+
     func listPVEResources(serverID: UUID, enabled: Bool) async throws -> [PVEResource] {
         guard enabled else { throw PVETransportError.disabled }
         let raw = try await execute(
@@ -1479,9 +1517,7 @@ enum ContainerAction: String, CaseIterable, Sendable {
     case start
     case stop
     case restart
-}
-
-enum RemoteContainerParser {
+}enum RemoteContainerParser {
     static func parse(_ raw: String, runtime: String) -> [RemoteContainer] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
             let fields = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false)

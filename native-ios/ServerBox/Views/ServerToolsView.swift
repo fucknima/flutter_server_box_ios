@@ -9,22 +9,34 @@ final class ServerToolsViewModel: ObservableObject {
     @Published var errorMessage: String?
     @Published var serviceToControl: RemoteSystemService?
     @Published var containerToControl: RemoteContainer?
+    @Published var containerToRemove: RemoteContainer?
+    @Published var inspectedOutput: (title: String, content: String)?
+    @Published var isLoadingOutput = false
 
     private let listServices: () async throws -> [RemoteSystemService]
     private let controlService: (RemoteSystemService, SystemServiceAction) async throws -> Void
+    private let serviceStatus: (RemoteSystemService) async throws -> String
     private let listContainers: () async throws -> [RemoteContainer]
     private let controlContainer: (RemoteContainer, ContainerAction) async throws -> Void
+    private let removeContainer: (RemoteContainer) async throws -> Void
+    private let containerLogs: (RemoteContainer) async throws -> String
 
     init(
         listServices: @escaping () async throws -> [RemoteSystemService],
         controlService: @escaping (RemoteSystemService, SystemServiceAction) async throws -> Void,
+        serviceStatus: @escaping (RemoteSystemService) async throws -> String,
         listContainers: @escaping () async throws -> [RemoteContainer],
-        controlContainer: @escaping (RemoteContainer, ContainerAction) async throws -> Void
+        controlContainer: @escaping (RemoteContainer, ContainerAction) async throws -> Void,
+        removeContainer: @escaping (RemoteContainer) async throws -> Void,
+        containerLogs: @escaping (RemoteContainer) async throws -> String
     ) {
         self.listServices = listServices
         self.controlService = controlService
+        self.serviceStatus = serviceStatus
         self.listContainers = listContainers
         self.controlContainer = controlContainer
+        self.removeContainer = removeContainer
+        self.containerLogs = containerLogs
     }
 
     func loadAll() async {
@@ -65,12 +77,45 @@ final class ServerToolsViewModel: ObservableObject {
         }
     }
 
+    func inspectService(_ service: RemoteSystemService) async {
+        isLoadingOutput = true
+        defer { isLoadingOutput = false }
+        do {
+            let content = try await serviceStatus(service)
+            inspectedOutput = (title: service.unit, content: content)
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
     func applyContainerAction(_ action: ContainerAction) async {
         guard let container = containerToControl else { return }
         do {
             try await controlContainer(container, action)
             containerToControl = nil
             await loadContainers()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func confirmRemoveContainer() async {
+        guard let container = containerToRemove else { return }
+        do {
+            try await removeContainer(container)
+            containerToRemove = nil
+            await loadContainers()
+        } catch {
+            errorMessage = error.localizedDescription
+        }
+    }
+
+    func inspectContainerLogs(_ container: RemoteContainer) async {
+        isLoadingOutput = true
+        defer { isLoadingOutput = false }
+        do {
+            let content = try await containerLogs(container)
+            inspectedOutput = (title: container.name, content: content)
         } catch {
             errorMessage = error.localizedDescription
         }
@@ -84,15 +129,21 @@ struct ServerToolsView: View {
     init(
         listServices: @escaping () async throws -> [RemoteSystemService],
         controlService: @escaping (RemoteSystemService, SystemServiceAction) async throws -> Void,
+        serviceStatus: @escaping (RemoteSystemService) async throws -> String,
         listContainers: @escaping () async throws -> [RemoteContainer],
-        controlContainer: @escaping (RemoteContainer, ContainerAction) async throws -> Void
+        controlContainer: @escaping (RemoteContainer, ContainerAction) async throws -> Void,
+        removeContainer: @escaping (RemoteContainer) async throws -> Void,
+        containerLogs: @escaping (RemoteContainer) async throws -> String
     ) {
         _viewModel = StateObject(
             wrappedValue: ServerToolsViewModel(
                 listServices: listServices,
                 controlService: controlService,
+                serviceStatus: serviceStatus,
                 listContainers: listContainers,
-                controlContainer: controlContainer
+                controlContainer: controlContainer,
+                removeContainer: removeContainer,
+                containerLogs: containerLogs
             )
         )
     }
@@ -125,7 +176,45 @@ struct ServerToolsView: View {
             ) {
                 Button("好", role: .cancel) {}
             } message: {
-                Text(viewModel.errorMessage ?? "未知服务器工具错误")
+                Text(viewModel.errorMessage ?? "未知工具错误")
+            }
+            .sheet(item: Binding(
+                get: { viewModel.inspectedOutput.map { OutputItem($0) } },
+                set: { if $0 == nil { viewModel.inspectedOutput = nil } }
+            )) { item in
+                OutputSheet(title: item.title, content: item.content)
+            }
+        }
+        .tint(DesignTokens.accent)
+    }
+}
+
+private struct OutputItem: Identifiable {
+    let title: String
+    let content: String
+    var id: String { title }
+}
+
+private struct OutputSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    let title: String
+    let content: String
+
+    var body: some View {
+        NavigationStack {
+            ScrollView {
+                Text(content)
+                    .font(.system(.footnote, design: .monospaced))
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .textSelection(.enabled)
+                    .padding()
+            }
+            .navigationTitle(title)
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("完成") { dismiss() }
+                }
             }
         }
         .tint(DesignTokens.accent)
@@ -158,8 +247,14 @@ private struct ServicesTab: View {
                 }
             }
             .buttonStyle(.plain)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button("状态") {
+                    Task { await viewModel.inspectService(service) }
+                }
+                .disabled(viewModel.isLoadingOutput)
+            }
         }
-        .overlay { emptyState(title: "没有 systemd 服务", loading: viewModel.isLoadingServices) }
+        .overlay { emptyState(title: "暂无 systemd 服务", loading: viewModel.isLoadingServices) }
         .refreshable { await viewModel.loadServices() }
         .confirmationDialog(
             "控制系统服务？",
@@ -168,11 +263,19 @@ private struct ServicesTab: View {
                 set: { isPresented in
                     if !isPresented { viewModel.serviceToControl = nil }
                 }
-            )
+            ),
+            titleVisibility: .visible
         ) {
             Button("启动") { Task { await viewModel.applyServiceAction(.start) } }
             Button("停止", role: .destructive) { Task { await viewModel.applyServiceAction(.stop) } }
             Button("重启") { Task { await viewModel.applyServiceAction(.restart) } }
+            Button("查看状态") {
+                let service = viewModel.serviceToControl
+                viewModel.serviceToControl = nil
+                if let service {
+                    Task { await viewModel.inspectService(service) }
+                }
+            }
             Button("取消", role: .cancel) {}
         } message: {
             Text(viewModel.serviceToControl?.unit ?? "")
@@ -209,8 +312,18 @@ private struct ContainersTab: View {
                 }
             }
             .buttonStyle(.plain)
+            .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                Button("删除", role: .destructive) {
+                    viewModel.containerToRemove = container
+                }
+                .disabled(viewModel.isLoadingOutput)
+                Button("日志") {
+                    Task { await viewModel.inspectContainerLogs(container) }
+                }
+                .disabled(viewModel.isLoadingOutput)
+            }
         }
-        .overlay { emptyState(title: "没有容器", loading: viewModel.isLoadingContainers) }
+        .overlay { emptyState(title: "暂无容器", loading: viewModel.isLoadingContainers) }
         .refreshable { await viewModel.loadContainers() }
         .confirmationDialog(
             "控制容器？",
@@ -219,14 +332,40 @@ private struct ContainersTab: View {
                 set: { isPresented in
                     if !isPresented { viewModel.containerToControl = nil }
                 }
-            )
+            ),
+            titleVisibility: .visible
         ) {
             Button("启动") { Task { await viewModel.applyContainerAction(.start) } }
             Button("停止", role: .destructive) { Task { await viewModel.applyContainerAction(.stop) } }
             Button("重启") { Task { await viewModel.applyContainerAction(.restart) } }
+            Button("查看日志") {
+                let container = viewModel.containerToControl
+                viewModel.containerToControl = nil
+                if let container {
+                    Task { await viewModel.inspectContainerLogs(container) }
+                }
+            }
             Button("取消", role: .cancel) {}
         } message: {
             Text(viewModel.containerToControl?.name ?? "")
+        }
+        .alert(
+            "删除容器？",
+            isPresented: Binding(
+                get: { viewModel.containerToRemove != nil },
+                set: { isPresented in
+                    if !isPresented { viewModel.containerToRemove = nil }
+                }
+            )
+        ) {
+            Button("删除", role: .destructive) {
+                Task { await viewModel.confirmRemoveContainer() }
+            }
+            Button("取消", role: .cancel) {
+                viewModel.containerToRemove = nil
+            }
+        } message: {
+            Text("容器 \(viewModel.containerToRemove?.name ?? "") 将被强制删除（rm -f），此操作不可撤销。")
         }
     }
 }
@@ -234,7 +373,7 @@ private struct ContainersTab: View {
 @ViewBuilder
 private func emptyState(title: LocalizedStringKey, loading: Bool) -> some View {
     if loading {
-        ProgressView("加载中...")
+        ProgressView("正在加载...")
     } else {
         ContentUnavailableView(title, systemImage: "server.rack")
     }

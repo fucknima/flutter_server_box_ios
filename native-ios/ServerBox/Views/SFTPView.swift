@@ -277,6 +277,22 @@ struct SFTPView: View {
                             }
                         }
                         .disabled(viewModel.isMutating)
+                        .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                            Button("删除", role: .destructive) {
+                                fileToDelete = file
+                            }
+                            .disabled(viewModel.isMutating)
+                            Button("重命名", systemImage: "pencil") {
+                                nameInput = SFTPNameInput(operation: .rename(file))
+                            }
+                            .disabled(viewModel.isMutating)
+                            if !file.isDirectory {
+                                Button("下载", systemImage: "arrow.down.circle") {
+                                    onDownload(file)
+                                }
+                                .disabled(viewModel.isMutating)
+                            }
+                        }
                         .contextMenu {
                             Button("重命名", systemImage: "pencil") {
                                 nameInput = SFTPNameInput(operation: .rename(file))
@@ -315,35 +331,41 @@ struct SFTPView: View {
                     .accessibilityLabel("主目录")
                 }
                 ToolbarItem(placement: .topBarTrailing) {
-                    Button {
-                        showingPathInput = true
-                    } label: {
-                        Image(systemName: "location")
-                    }
-                    .accessibilityLabel("跳转路径")
-                }
-                ToolbarItem(placement: .topBarTrailing) {
                     Menu {
-                        ForEach(SFTPFileSortOrder.allCases) { order in
-                            Button {
-                                if sortOrder == order {
-                                    sortAscending.toggle()
-                                } else {
-                                    sortOrder = order
-                                    sortAscending = true
-                                }
-                            } label: {
-                                if sortOrder == order {
-                                    Label(order.title, systemImage: "checkmark")
-                                } else {
-                                    Text(order.title)
+                        Button("跳转路径", systemImage: "location") {
+                            showingPathInput = true
+                        }
+                        Divider()
+                        Button("新建文件夹", systemImage: "folder.badge.plus") {
+                            nameInput = SFTPNameInput(operation: .createDirectory)
+                        }
+                        Button("新建文件", systemImage: "doc.badge.plus") {
+                            nameInput = SFTPNameInput(operation: .createFile)
+                        }
+                        Divider()
+                        Menu("排序") {
+                            ForEach(SFTPFileSortOrder.allCases) { order in
+                                Button {
+                                    if sortOrder == order {
+                                        sortAscending.toggle()
+                                    } else {
+                                        sortOrder = order
+                                        sortAscending = true
+                                    }
+                                } label: {
+                                    if sortOrder == order {
+                                        Label(order.title, systemImage: "checkmark")
+                                    } else {
+                                        Text(order.title)
+                                    }
                                 }
                             }
                         }
                     } label: {
-                        Image(systemName: "arrow.up.arrow.down")
+                        Image(systemName: "ellipsis.circle")
                     }
-                    .accessibilityLabel("文件排序")
+                    .accessibilityLabel("更多操作")
+                    .disabled(viewModel.isMutating)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
                     Button {
@@ -352,20 +374,6 @@ struct SFTPView: View {
                         Image(systemName: "arrow.up.doc")
                     }
                     .accessibilityLabel("上传文件")
-                    .disabled(viewModel.isMutating)
-                }
-                ToolbarItem(placement: .topBarTrailing) {
-                    Menu {
-                        Button("新建文件夹", systemImage: "folder.badge.plus") {
-                            nameInput = SFTPNameInput(operation: .createDirectory)
-                        }
-                        Button("新建文件", systemImage: "doc.badge.plus") {
-                            nameInput = SFTPNameInput(operation: .createFile)
-                        }
-                    } label: {
-                        Image(systemName: "plus")
-                    }
-                    .accessibilityLabel("创建远程项目")
                     .disabled(viewModel.isMutating)
                 }
                 ToolbarItem(placement: .topBarTrailing) {
@@ -430,11 +438,12 @@ struct SFTPView: View {
             }
             .fileImporter(
                 isPresented: $showingFileImporter,
-                allowedContentTypes: [.data],
+                allowedContentTypes: [.item],
                 allowsMultipleSelection: false
             ) { result in
                 if case .success(let urls) = result, let url = urls.first {
                     onUpload(url, viewModel.path)
+                    showingMissions = true
                 }
             }
             .sheet(item: $nameInput) { input in
