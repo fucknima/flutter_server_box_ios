@@ -878,16 +878,6 @@ final class ServerListViewModel: ObservableObject {
         )
     }
 
-    func fetchContainerLogs(
-        _ container: RemoteContainer,
-        on server: ServerConfiguration
-    ) async throws -> String {
-        try await SSHConnectionService.live.fetchContainerLogs(
-            serverID: server.id,
-            container: container
-        )
-    }
-
     func fetchSystemServiceStatus(
         _ service: RemoteSystemService,
         on server: ServerConfiguration
