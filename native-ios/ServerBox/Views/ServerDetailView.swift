@@ -309,6 +309,9 @@ struct ServerDetailView: View {
     private func statusMetrics(_ status: ServerStatus) -> some View {
         VStack(spacing: DesignTokens.spaceM) {
             DetailMetricRow(title: "CPU", value: status.cpu, fraction: status.cpuFraction, image: "cpu")
+            if !status.cpuBrand.isEmpty {
+                DetailMetricRow(title: "CPU 型号", value: status.cpuBrand, fraction: nil, image: "cpu")
+            }
             if !status.cpuCores.isEmpty {
                 ForEach(Array(status.cpuCores.enumerated()), id: \.offset) { index, value in
                     DetailMetricRow(
@@ -326,14 +329,14 @@ struct ServerDetailView: View {
             if !status.disks.isEmpty {
                 ForEach(Array(status.disks.enumerated()), id: \.offset) { index, disk in
                     DetailMetricRow(
-                        title: disk.name,
+                        title: disk.mountPath.isEmpty ? disk.name : "\(disk.name) (\(disk.mountPath))",
                         value: "\(LinuxStatusParser.humanBytes(disk.used)) / \(LinuxStatusParser.humanBytes(disk.total))",
                         fraction: min(max(disk.usedPercent / 100, 0), 1),
                         image: "internaldrive"
                     )
                 }
             }
-            DetailMetricRow(title: "网络", value: status.network, fraction: nil, image: "network")
+            DetailMetricRow(title: "网络", value: networkValue(status.network), fraction: nil, image: "network")
             if !status.temps.isEmpty {
                 ForEach(status.temps.sorted(by: { $0.key < $1.key }), id: \.key) { name, value in
                     DetailMetricRow(
@@ -344,10 +347,18 @@ struct ServerDetailView: View {
                     )
                 }
             }
+            if !status.sysName.isEmpty {
+                DetailMetricRow(title: "系统", value: status.sysName, fraction: nil, image: "desktopcomputer")
+            }
             if !status.uptime.isEmpty {
                 DetailMetricRow(title: "运行时间", value: status.uptime, fraction: nil, image: "clock")
             }
         }
+    }
+
+    private func networkValue(_ network: String) -> String {
+        guard let (down, up) = network.networkDownUp else { return network }
+        return "\(up) ↑\n\(down) ↓"
     }
 
     private var authenticationTitle: LocalizedStringKey {
@@ -390,6 +401,8 @@ private struct DetailMetricRow: View {
                 Spacer()
                 Text(value.isEmpty ? "-" : value)
                     .font(.system(.subheadline, design: .monospaced, weight: .medium))
+                    .lineLimit(2)
+                    .multilineTextAlignment(.trailing)
             }
             if let fraction {
                 ProgressView(value: fraction)

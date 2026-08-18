@@ -319,9 +319,10 @@ struct ServerCardView: View {
                 )
                 StatusMetricRow(
                     title: "网络",
-                    value: status.network,
+                    value: networkValue(status.network),
                     fraction: nil,
-                    systemImage: "network"
+                    systemImage: "network",
+                    multiLine: true
                 )
             }
         case .failed(let message):
@@ -349,6 +350,11 @@ struct ServerCardView: View {
             return status.name
         }
         return server.name
+    }
+
+    private func networkValue(_ network: String) -> String {
+        guard let (down, up) = network.networkDownUp else { return network }
+        return "↓: \(down)\n↑: \(up)"
     }
 
     private var connectionTitle: String {
@@ -412,6 +418,7 @@ private struct StatusMetricRow: View {
     let value: String
     let fraction: Double?
     let systemImage: String
+    var multiLine: Bool = false
 
     var body: some View {
         VStack(alignment: .leading, spacing: 5) {
@@ -422,7 +429,9 @@ private struct StatusMetricRow: View {
                 Spacer()
                 Text(value.isEmpty ? "-" : value)
                     .font(.system(.subheadline, design: .monospaced, weight: .medium))
-                    .lineLimit(1)
+                    .lineLimit(multiLine ? 2 : 1)
+                    .multilineTextAlignment(.trailing)
+                    .frame(maxWidth: .infinity, alignment: .trailing)
             }
 
             if let fraction {
@@ -431,5 +440,13 @@ private struct StatusMetricRow: View {
                     .tint(DesignTokens.statusColor(for: fraction))
             }
         }
+    }
+}
+
+extension String {
+    var networkDownUp: (down: String, up: String)? {
+        let parts = split(separator: " / ")
+        guard parts.count == 2 else { return nil }
+        return (String(parts[0]), String(parts[1]))
     }
 }
