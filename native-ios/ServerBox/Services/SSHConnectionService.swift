@@ -1517,7 +1517,9 @@ enum ContainerAction: String, CaseIterable, Sendable {
     case start
     case stop
     case restart
-}enum RemoteContainerParser {
+}
+
+enum RemoteContainerParser {
     static func parse(_ raw: String, runtime: String) -> [RemoteContainer] {
         raw.split(whereSeparator: { $0 == "\n" || $0 == "\r" }).compactMap { line in
             let fields = line.split(separator: "\t", maxSplits: 3, omittingEmptySubsequences: false)
