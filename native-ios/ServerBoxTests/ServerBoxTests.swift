@@ -132,7 +132,7 @@ struct ServerBoxTests {
         SrvBoxData.server-one
         SrvBoxSep.b64.Y3B1
         SrvBoxData.cpu  21328136 489 1585090 285720255 14996 0 208206 0 0 0
-        SrvBoxSep.b64.bW9tb3J5
+        SrvBoxSep.b64.bW1tb3J5
         SrvBoxData.MemTotal: 4013876 kB
         SrvBoxData.MemFree: 404204 kB
         SrvBoxData.MemAvailable: 1795876 kB
