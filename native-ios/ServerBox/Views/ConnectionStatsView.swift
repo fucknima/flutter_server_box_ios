@@ -5,6 +5,9 @@ struct ConnectionStatsView: View {
     @StateObject private var viewModel: ConnectionStatsViewModel
     @State private var selectedServer: ServerConnectionStats?
     @State private var isShowingClearConfirmation = false
+    @State private var isShowingCompactConfirmation = false
+    @State private var compactBeforeSize: Int64 = 0
+    @State private var compactResultMessage: String?
 
     @MainActor
     init(viewModel: ConnectionStatsViewModel) {
@@ -24,7 +27,9 @@ struct ConnectionStatsView: View {
                     await viewModel.load()
                 }
                 .sheet(item: $selectedServer) { stats in
-                    ConnectionStatsDetailView(stats: stats)
+                    ConnectionStatsDetailView(stats: stats) { serverID in
+                        Task { await viewModel.clear(serverID: serverID) }
+                    }
                 }
                 .confirmationDialog(
                     "删除全部连接历史？",
@@ -36,6 +41,33 @@ struct ConnectionStatsView: View {
                     Button("取消", role: .cancel) {}
                 } message: {
                     Text("这会删除所有服务器的连接记录。")
+                }
+                .confirmationDialog(
+                    "清理旧连接记录？",
+                    isPresented: $isShowingCompactConfirmation
+                ) {
+                    Button("清理", role: .destructive) {
+                        Task {
+                            if let result = await viewModel.compact() {
+                                compactResultMessage =
+                                    "压缩前 \(byteString(result.beforeBytes)) → 压缩后 \(byteString(result.afterBytes))"
+                            }
+                        }
+                    }
+                    Button("取消", role: .cancel) {}
+                } message: {
+                    Text("当前数据库大小：\(byteString(compactBeforeSize))。将删除 30 天前的记录。")
+                }
+                .alert(
+                    "清理完成",
+                    isPresented: Binding(
+                        get: { compactResultMessage != nil },
+                        set: { if !$0 { compactResultMessage = nil } }
+                    )
+                ) {
+                    Button("好", role: .cancel) {}
+                } message: {
+                    Text(compactResultMessage ?? "")
                 }
                 .alert(
                     "连接统计错误",
@@ -109,7 +141,10 @@ struct ConnectionStatsView: View {
             .accessibilityLabel("刷新连接统计")
 
             Button {
-                Task { await viewModel.compact() }
+                Task {
+                    compactBeforeSize = await viewModel.databaseSize()
+                    isShowingCompactConfirmation = true
+                }
             } label: {
                 if viewModel.isCompacting {
                     ProgressView()
@@ -128,6 +163,13 @@ struct ConnectionStatsView: View {
             .disabled(viewModel.serverStats.isEmpty)
             .accessibilityLabel("删除全部连接统计")
         }
+    }
+
+    private func byteString(_ bytes: Int64) -> String {
+        ByteCountFormatter.string(
+            fromByteCount: bytes,
+            countStyle: .file
+        )
     }
 }
 
@@ -245,7 +287,10 @@ private struct TimelineLabel: View {
 }
 
 private struct ConnectionStatsDetailView: View {
+    @Environment(\.dismiss) private var dismiss
     let stats: ServerConnectionStats
+    let onClear: (UUID) -> Void
+    @State private var isShowingClearConfirmation = false
 
     var body: some View {
         NavigationStack {
@@ -262,9 +307,32 @@ private struct ConnectionStatsDetailView: View {
                         ConnectionStatRow(stat: stat, showsError: true)
                     }
                 }
+
+                Section {
+                    Button("清除此服务器统计", role: .destructive) {
+                        isShowingClearConfirmation = true
+                    }
+                }
             }
             .navigationTitle(stats.serverName)
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .topBarTrailing) {
+                    Button("完成") { dismiss() }
+                }
+            }
+            .confirmationDialog(
+                "清除此服务器的连接统计？",
+                isPresented: $isShowingClearConfirmation
+            ) {
+                Button("清除统计", role: .destructive) {
+                    onClear(stats.serverID)
+                    dismiss()
+                }
+                Button("取消", role: .cancel) {}
+            } message: {
+                Text("这会删除「\(stats.serverName)」的全部连接记录，且无法恢复。")
+            }
         }
     }
 }

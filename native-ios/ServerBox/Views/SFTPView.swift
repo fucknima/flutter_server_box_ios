@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import UIKit
 import UniformTypeIdentifiers
 
 @MainActor
@@ -200,6 +201,7 @@ struct SFTPView: View {
     let onDownload: (RemoteFile) -> Void
     let onUpload: (URL, String) -> Void
     let onShowLocalFile: (URL) -> Void
+    let pendingUploadURL: URL?
     @State private var showingMissions = false
     @State private var showingFileImporter = false
     @State private var nameInput: SFTPNameInput?
@@ -209,6 +211,7 @@ struct SFTPView: View {
     @State private var sortOrder: SFTPFileSortOrder = .name
     @State private var sortAscending = true
     @State private var showingPathInput = false
+    @State private var didHandlePendingUpload = false
 
     init(
         listDirectory: @escaping (String) async throws -> [RemoteFile],
@@ -218,12 +221,14 @@ struct SFTPView: View {
         transferViewModel: SFTPTransferViewModel,
         onDownload: @escaping (RemoteFile) -> Void,
         onUpload: @escaping (URL, String) -> Void,
-        onShowLocalFile: @escaping (URL) -> Void
+        onShowLocalFile: @escaping (URL) -> Void,
+        pendingUploadURL: URL? = nil
     ) {
         self.transferViewModel = transferViewModel
         self.onDownload = onDownload
         self.onUpload = onUpload
         self.onShowLocalFile = onShowLocalFile
+        self.pendingUploadURL = pendingUploadURL
         _viewModel = StateObject(
             wrappedValue: SFTPViewModel(
                 listDirectory: listDirectory,
@@ -298,6 +303,9 @@ struct SFTPView: View {
                                 nameInput = SFTPNameInput(operation: .rename(file))
                             }
                             .disabled(viewModel.isMutating)
+                            Button("复制路径", systemImage: "link") {
+                                UIPasteboard.general.string = file.path
+                            }
                             if !file.isDirectory {
                                 Button("下载", systemImage: "arrow.down.circle") {
                                     onDownload(file)
@@ -400,6 +408,11 @@ struct SFTPView: View {
             }
             .task {
                 await viewModel.loadInitial()
+                if let pendingUploadURL, !didHandlePendingUpload {
+                    didHandlePendingUpload = true
+                    onUpload(pendingUploadURL, viewModel.path)
+                    showingMissions = true
+                }
             }
             .searchable(text: $searchText, placement: .navigationBarDrawer(displayMode: .always))
             .alert(
@@ -471,7 +484,7 @@ struct SFTPView: View {
                     }
                 )
             ) {
-                Button("删除", role: .destructive) {
+                Button(fileToDelete?.isDirectory == true ? "删除（含子目录）" : "删除", role: .destructive) {
                     guard let file = fileToDelete else { return }
                     fileToDelete = nil
                     Task {
@@ -509,10 +522,10 @@ struct SFTPView: View {
                         Text(ByteCountFormatter.string(fromByteCount: Int64(size), countStyle: .file))
                     }
                     if let modifiedAt = file.modifiedAt {
-                        Text(modifiedAt, style: .date)
+                        Text(Self.absoluteDateFormatter.string(from: modifiedAt))
                     }
-                    if let permissions = file.permissions {
-                        Text(permissionText(permissions))
+                    if file.permissions != nil {
+                        Text(permissionText(file))
                     }
                 }
                 .font(.caption)
@@ -558,10 +571,24 @@ struct SFTPView: View {
         return lhs < rhs ? .orderedAscending : .orderedDescending
     }
 
-    private func permissionText(_ permissions: UInt32) -> String {
-        let value = String(permissions & 0o7777, radix: 8)
-        return String(repeating: "0", count: max(0, 4 - value.count)) + value
+    private func permissionText(_ file: RemoteFile) -> String {
+        let permissions = file.permissions ?? 0
+        let flags = ["r", "w", "x"]
+        var result = file.isDirectory ? "d" : "-"
+        for shift in stride(from: 6, through: 0, by: -3) {
+            let bits = (permissions >> UInt32(shift)) & 0o7
+            for flagIndex in 0..<3 {
+                result += (bits & UInt32(1 << (2 - flagIndex))) != 0 ? flags[flagIndex] : "-"
+            }
+        }
+        return result
     }
+
+    private static let absoluteDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
 
     private func makeMutation(
         _ operation: SFTPNameOperation,

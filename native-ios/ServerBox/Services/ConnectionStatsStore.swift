@@ -63,6 +63,11 @@ actor ConnectionStatsStore {
         try persist()
     }
 
+    func databaseSize() -> Int64 {
+        let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
+        return (attributes?[.size] as? NSNumber)?.int64Value ?? 0
+    }
+
     private func loadIfNeeded() throws {
         guard !didLoad else { return }
         guard FileManager.default.fileExists(atPath: fileURL.path) else {

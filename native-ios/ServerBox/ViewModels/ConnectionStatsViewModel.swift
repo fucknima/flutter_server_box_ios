@@ -34,15 +34,37 @@ final class ConnectionStatsViewModel: ObservableObject {
         }
     }
 
-    func compact() async {
-        isCompacting = true
-        defer { isCompacting = false }
-
+    func clear(serverID: UUID) async {
         do {
-            try await store.compact()
+            try await store.clear(serverID: serverID)
             serverStats = try await store.allServerStats()
         } catch {
             errorMessage = error.localizedDescription
         }
     }
+
+    func databaseSize() async -> Int64 {
+        await store.databaseSize()
+    }
+
+    func compact() async -> CompactResult? {
+        isCompacting = true
+        defer { isCompacting = false }
+
+        do {
+            let before = await store.databaseSize()
+            try await store.compact()
+            let after = await store.databaseSize()
+            serverStats = try await store.allServerStats()
+            return CompactResult(beforeBytes: before, afterBytes: after)
+        } catch {
+            errorMessage = error.localizedDescription
+            return nil
+        }
+    }
+}
+
+struct CompactResult: Sendable {
+    let beforeBytes: Int64
+    let afterBytes: Int64
 }

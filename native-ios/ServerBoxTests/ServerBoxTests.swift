@@ -258,6 +258,42 @@ struct ServerBoxTests {
     }
 
     @Test
+    func connectionStatsStoreClearsSingleServerAndReportsDatabaseSize() async throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appendingPathComponent("ConnectionStatsTests-\(UUID().uuidString)", isDirectory: true)
+        let fileURL = directory.appendingPathComponent("connection-stats.json")
+        let store = ConnectionStatsStore(fileURL: fileURL)
+        let firstServerID = UUID()
+        let secondServerID = UUID()
+        let now = Date()
+
+        defer { try? FileManager.default.removeItem(at: directory) }
+
+        for serverID in [firstServerID, secondServerID] {
+            try await store.record(
+                ConnectionStat(
+                    serverID: serverID,
+                    serverName: serverID == firstServerID ? "First" : "Second",
+                    timestamp: now,
+                    result: .success,
+                    durationMilliseconds: 10
+                )
+            )
+        }
+
+        let sizeAfterRecord = await store.databaseSize()
+        #expect(sizeAfterRecord > 0)
+
+        try await store.clear(serverID: firstServerID)
+        let remaining = try await store.allServerStats()
+        #expect(remaining.count == 1)
+        #expect(remaining.first?.serverID == secondServerID)
+
+        let sizeAfterClear = await store.databaseSize()
+        #expect(sizeAfterClear > 0)
+    }
+
+    @Test
     func terminalOutputParserRemovesControlSequencesAcrossChunks() {
         var parser = TerminalOutputParser()
 
@@ -318,6 +354,62 @@ struct ServerBoxTests {
         #expect(resource.isRunning)
         #expect(resource.memoryFraction == 0.5)
         #expect(resource.diskFraction == 0.5)
+    }
+
+    @Test
+    func pveResourceDecodesOptionalIOUptimeAndStorageFields() throws {
+        let resources = try JSONDecoder().decode(
+            [PVEResource].self,
+            from: Data(
+                """
+                [
+                  {"id":"node/pve","type":"node","node":"pve","status":"online","cpu":0.25,"maxcpu":4,"mem":2048,"maxmem":4096,"uptime":90061},
+                  {"id":"qemu/100","type":"qemu","node":"pve","vmid":100,"name":"router","status":"running","uptime":3600,"netin":1024,"netout":512,"diskread":2048,"diskwrite":4096},
+                  {"id":"storage/local","type":"storage","storage":"local","node":"pve","status":"available","plugintype":"dir","content":"iso,vztmpl","disk":100,"maxdisk":1000}
+                ]
+                """.utf8
+            )
+        )
+        let node = try #require(resources.first { $0.type == "node" })
+        let vm = try #require(resources.first { $0.type == "qemu" })
+        let storage = try #require(resources.first { $0.type == "storage" })
+
+        #expect(node.uptime == 90_061)
+        #expect(node.isOnline)
+        #expect(!node.isRunning)
+
+        #expect(vm.uptime == 3_600)
+        #expect(vm.networkInBytes == 1_024)
+        #expect(vm.networkOutBytes == 512)
+        #expect(vm.diskReadBytes == 2_048)
+        #expect(vm.diskWriteBytes == 4_096)
+
+        #expect(storage.pluginType == "dir")
+        #expect(storage.content == "iso,vztmpl")
+        #expect(storage.isOnline)
+    }
+
+    @Test
+    func pveResourceDecodesWithoutOptionalFields() throws {
+        let resources = try JSONDecoder().decode(
+            [PVEResource].self,
+            from: Data(
+                """
+                [{"id":"qemu/101","type":"qemu","node":"pve","vmid":101,"name":"test","status":"stopped"}]
+                """.utf8
+            )
+        )
+        let resource = try #require(resources.first)
+
+        #expect(resource.uptime == nil)
+        #expect(resource.networkInBytes == nil)
+        #expect(resource.networkOutBytes == nil)
+        #expect(resource.diskReadBytes == nil)
+        #expect(resource.diskWriteBytes == nil)
+        #expect(resource.pluginType == nil)
+        #expect(resource.content == nil)
+        #expect(!resource.isRunning)
+        #expect(!resource.isOnline)
     }
 
     @Test

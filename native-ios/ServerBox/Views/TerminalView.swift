@@ -16,6 +16,7 @@ final class TerminalViewModel: ObservableObject {
 
     private let openSession: () async throws -> SSHTerminalSession
     private let initialCommand: String?
+    private let initialScript: (script: String, server: ServerConfiguration)?
     private var session: SSHTerminalSession?
     private var outputTask: Task<Void, Never>?
     private var outputParser = TerminalOutputParser()
@@ -37,10 +38,12 @@ final class TerminalViewModel: ObservableObject {
 
     init(
         openSession: @escaping () async throws -> SSHTerminalSession,
-        initialCommand: String? = nil
+        initialCommand: String? = nil,
+        initialScript: (script: String, server: ServerConfiguration)? = nil
     ) {
         self.openSession = openSession
         self.initialCommand = initialCommand
+        self.initialScript = initialScript
     }
 
     func start() async {
@@ -90,6 +93,27 @@ final class TerminalViewModel: ObservableObject {
             }
             if let initialCommand, !initialCommand.isEmpty {
                 try await session.send(initialCommand + "\n")
+            }
+            if let initialScript {
+                let storedPassword = (try? SSHCredentialStore().load(for: initialScript.server.id))
+                let password: String
+                if case .password(let value) = storedPassword {
+                    password = value
+                } else {
+                    password = ""
+                }
+                try? await SnippetFormat.execute(
+                    initialScript.script,
+                    server: initialScript.server,
+                    password: password,
+                    send: { value in
+                        try await session.send(value)
+                    },
+                    sleep: { duration in
+                        try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+                    }
+                )
+                try? await session.send("\n")
             }
         } catch {
             state = .failed(error.localizedDescription)
@@ -201,12 +225,14 @@ struct TerminalView: View {
 
     init(
         initialCommand: String? = nil,
+        initialScript: (script: String, server: ServerConfiguration)? = nil,
         openSession: @escaping () async throws -> SSHTerminalSession
     ) {
         _viewModel = StateObject(
             wrappedValue: TerminalViewModel(
                 openSession: openSession,
-                initialCommand: initialCommand
+                initialCommand: initialCommand,
+                initialScript: initialScript
             )
         )
     }

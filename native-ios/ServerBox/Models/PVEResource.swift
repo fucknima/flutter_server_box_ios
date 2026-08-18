@@ -16,6 +16,11 @@ struct PVEResource: Codable, Equatable, Identifiable, Sendable {
     let maxDiskBytes: UInt64?
     let networkInBytes: UInt64?
     let networkOutBytes: UInt64?
+    let uptime: Int?
+    let diskReadBytes: UInt64?
+    let diskWriteBytes: UInt64?
+    let pluginType: String?
+    let content: String?
 
     var id: String {
         "\(type):\(node):\(resourceID ?? vmid.map(String.init) ?? storage ?? "node")"
@@ -30,6 +35,15 @@ struct PVEResource: Codable, Equatable, Identifiable, Sendable {
 
     var isRunning: Bool {
         status?.lowercased() == "running"
+    }
+
+    var isOnline: Bool {
+        switch status?.lowercased() {
+        case "running", "online", "available", "ok":
+            return true
+        default:
+            return false
+        }
     }
 
     var memoryFraction: Double? {
@@ -58,6 +72,11 @@ struct PVEResource: Codable, Equatable, Identifiable, Sendable {
         case maxDiskBytes = "maxdisk"
         case networkInBytes = "netin"
         case networkOutBytes = "netout"
+        case uptime
+        case diskReadBytes = "diskread"
+        case diskWriteBytes = "diskwrite"
+        case pluginType = "plugintype"
+        case content
     }
 }
 

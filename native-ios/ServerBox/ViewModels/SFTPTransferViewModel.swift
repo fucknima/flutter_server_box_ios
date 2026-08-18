@@ -4,12 +4,15 @@ import Foundation
 @MainActor
 final class SFTPTransferViewModel: ObservableObject {
     @Published private(set) var transfers: [SFTPTransfer] = []
+    @Published private(set) var speeds: [UUID: Double] = [:]
 
     private let serverViewModel: ServerListViewModel
     private let fileManager: FileManager
     private let destinationDirectory: URL
     private var tasks: [UUID: Task<Void, Never>] = [:]
     private var reservedDestinationURLs: Set<URL> = []
+    private var speedSamples: [UUID: (bytes: UInt64, date: Date)] = [:]
+    private var speedUpdater: Task<Void, Never>?
 
     private typealias ProgressHandler = @Sendable (SFTPTransferProgress) -> Void
     private typealias TransferOperation = @Sendable (@escaping ProgressHandler) async throws -> Void
@@ -26,6 +29,7 @@ final class SFTPTransferViewModel: ObservableObject {
     }
 
     deinit {
+        speedUpdater?.cancel()
         for task in tasks.values {
             task.cancel()
         }
@@ -120,6 +124,9 @@ final class SFTPTransferViewModel: ObservableObject {
     ) {
         let transferID = transfer.id
         transfers.insert(transfer, at: 0)
+        speeds[transferID] = 0
+        speedSamples[transferID] = (transfer.transferredBytes, Date())
+        startSpeedTracking()
         tasks[transferID] = Task { [weak self] in
             defer {
                 onFinish?()
@@ -162,6 +169,9 @@ final class SFTPTransferViewModel: ObservableObject {
         tasks[transfer.id]?.cancel()
         tasks.removeValue(forKey: transfer.id)
         transfers.removeAll { $0.id == transfer.id }
+        speeds[transfer.id] = nil
+        speedSamples[transfer.id] = nil
+        stopSpeedTrackingIfIdle()
     }
 
     private func apply(_ progress: SFTPTransferProgress, to transferID: UUID) {
@@ -197,6 +207,76 @@ final class SFTPTransferViewModel: ObservableObject {
         transfers[index].finishedAt = state == .finished || state == .failed || state == .cancelled
             ? Date()
             : nil
+        speeds[transferID] = nil
+        speedSamples[transferID] = nil
+        stopSpeedTrackingIfIdle()
+    }
+
+    private func startSpeedTracking() {
+        guard speedUpdater == nil else { return }
+        speedUpdater = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 1_000_000_000)
+                guard !Task.isCancelled else { break }
+                self?.updateSpeeds()
+            }
+        }
+    }
+
+    private func updateSpeeds() {
+        let now = Date()
+        for transferID in Array(speedSamples.keys) {
+            guard let sample = speedSamples[transferID] else { continue }
+            guard let index = transfers.firstIndex(where: { $0.id == transferID }) else {
+                speedSamples[transferID] = nil
+                speeds[transferID] = nil
+                continue
+            }
+            let transfer = transfers[index]
+            guard transfer.state == .preparing
+                || transfer.state == .downloading
+                || transfer.state == .uploading else {
+                speedSamples[transferID] = nil
+                speeds[transferID] = nil
+                continue
+            }
+            let elapsed = now.timeIntervalSince(sample.date)
+            guard elapsed >= 0.9 else { continue }
+            let delta = transfer.transferredBytes > sample.bytes
+                ? transfer.transferredBytes - sample.bytes
+                : 0
+            speeds[transferID] = Double(delta) / elapsed
+            speedSamples[transferID] = (transfer.transferredBytes, now)
+        }
+    }
+
+    private func stopSpeedTrackingIfIdle() {
+        let hasActive = transfers.contains { transfer in
+            transfer.state == .preparing
+                || transfer.state == .downloading
+                || transfer.state == .uploading
+        }
+        guard !hasActive else { return }
+        speedUpdater?.cancel()
+        speedUpdater = nil
+    }
+
+    func speedText(for transfer: SFTPTransfer) -> String? {
+        guard let speed = speeds[transfer.id], speed > 0 else { return nil }
+        return "\(compactByteString(speed))/s"
+    }
+
+    private func compactByteString(_ bytes: Double) -> String {
+        let units = ["B", "K", "M", "G", "T"]
+        var value = bytes
+        var index = 0
+        while value >= 1024, index < units.count - 1 {
+            value /= 1024
+            index += 1
+        }
+        return index == 0
+            ? "\(Int(value))B"
+            : String(format: "%.1f%@", value, units[index])
     }
 
     private func nextDestinationURL(for fileName: String) -> URL {

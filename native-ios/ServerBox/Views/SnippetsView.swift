@@ -3,6 +3,7 @@ import SwiftUI
 struct SnippetsView: View {
     @ObservedObject var serverViewModel: ServerListViewModel
     let onSettings: () -> Void
+    let onOpenTerminal: (NativeSnippet, ServerConfiguration) -> Void
     @StateObject private var viewModel = SnippetListViewModel()
     @State private var searchText = ""
     @State private var selectedTag = "All"
@@ -98,9 +99,7 @@ struct SnippetsView: View {
                 SnippetRunView(
                     snippet: snippet,
                     servers: serverViewModel.servers,
-                    onRun: { server in
-                        try await serverViewModel.execute(snippet.script, on: server)
-                    }
+                    onOpenTerminal: onOpenTerminal
                 )
             }
             .alert(
@@ -270,11 +269,8 @@ private struct SnippetRunView: View {
     @Environment(\.dismiss) private var dismiss
     let snippet: NativeSnippet
     let servers: [ServerConfiguration]
-    let onRun: (ServerConfiguration) async throws -> String
+    let onOpenTerminal: (NativeSnippet, ServerConfiguration) -> Void
     @State private var selectedServerID: UUID?
-    @State private var isRunning = false
-    @State private var errorMessage: String?
-    @State private var output: String?
 
     var body: some View {
         NavigationStack {
@@ -291,15 +287,15 @@ private struct SnippetRunView: View {
                             Text(server.name).tag(UUID?.some(server.id))
                         }
                     }
-                    Button("运行") { run() }
-                        .disabled(selectedServerID == nil || isRunning)
+                    Button("在终端中运行") { runInTerminal() }
+                        .disabled(selectedServerID == nil)
                 }
-                if let output {
-                    Section("输出") {
-                        Text(output)
-                            .font(.system(.footnote, design: .monospaced))
-                            .textSelection(.enabled)
-                    }
+                Section {
+                    Text("支持 ${host}、${port}、${user}、${pwd}、${id}、${name} 变量，以及 ${ctrl+x}、${alt+x}、${sleep N}、${enter N} 特殊标记。")
+                        .font(.footnote)
+                        .foregroundStyle(.secondary)
+                } footer: {
+                    Text("片段将在 SSH 终端中逐段执行。")
                 }
             }
             .navigationTitle("运行片段")
@@ -309,32 +305,13 @@ private struct SnippetRunView: View {
                     Button("关闭") { dismiss() }
                 }
             }
-            .overlay { if isRunning { ProgressView() } }
-            .alert(
-                "运行错误",
-                isPresented: Binding(
-                    get: { errorMessage != nil },
-                    set: { if !$0 { errorMessage = nil } }
-                )
-            ) {
-                Button("好", role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "未知运行错误")
-            }
         }
     }
 
-    private func run() {
+    private func runInTerminal() {
         guard let selectedServerID,
               let server = servers.first(where: { $0.id == selectedServerID }) else { return }
-        isRunning = true
-        Task {
-            do {
-                output = try await onRun(server)
-            } catch {
-                errorMessage = error.localizedDescription
-            }
-            isRunning = false
-        }
+        dismiss()
+        onOpenTerminal(snippet, server)
     }
 }

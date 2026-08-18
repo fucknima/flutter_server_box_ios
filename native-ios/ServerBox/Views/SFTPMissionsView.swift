@@ -76,7 +76,11 @@ struct SFTPMissionsView: View {
             }
             HStack {
                 Text(transfer.direction == .download ? byteSummary(for: transfer) : "上传中：\(byteSummary(for: transfer))")
+                if let speed = viewModel.speedText(for: transfer) {
+                    Text("· \(speed)")
+                }
                 Spacer()
+                Text(durationText(Date().timeIntervalSince(transfer.createdAt)))
                 Button("取消", role: .destructive) {
                     viewModel.cancel(transfer)
                 }
@@ -87,6 +91,11 @@ struct SFTPMissionsView: View {
         case .finished:
             HStack {
                 missionSubtitle(transfer.direction == .download ? "已完成" : "已上传")
+                if let finishedAt = transfer.finishedAt {
+                    Text("耗时 \(durationText(finishedAt.timeIntervalSince(transfer.createdAt)))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
                 Spacer()
                 if transfer.direction == .download {
                     Button("在文件中打开") {
@@ -151,6 +160,16 @@ struct SFTPMissionsView: View {
             color = .secondary
         }
         return Image(systemName: icon).foregroundStyle(color)
+    }
+
+    private func durationText(_ interval: TimeInterval) -> String {
+        let total = max(0, Int(interval.rounded()))
+        let hours = total / 3600
+        let minutes = (total % 3600) / 60
+        let seconds = total % 60
+        return hours > 0
+            ? String(format: "%d:%02d:%02d", hours, minutes, seconds)
+            : String(format: "%02d:%02d", minutes, seconds)
     }
 
     private func byteSummary(for transfer: SFTPTransfer) -> String {

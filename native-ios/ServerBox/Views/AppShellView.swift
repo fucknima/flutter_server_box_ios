@@ -41,6 +41,9 @@ struct AppShellView: View {
     @AppStorage("native.tab.agent.enabled") private var agentTabEnabled = true
     @State private var showingSettings = false
     @State private var requestedLocalFile: URL?
+    @State private var snippetTerminal: SnippetTerminalTarget?
+    @State private var showingSFTPMissions = false
+    @State private var sftpUploadTarget: PendingSFTPUpload?
 
     init(serverViewModel: ServerListViewModel) {
         self.serverViewModel = serverViewModel
@@ -85,6 +88,59 @@ struct AppShellView: View {
         .sheet(isPresented: $showingSettings) {
             SettingsView(serverViewModel: serverViewModel)
         }
+        .sheet(item: $snippetTerminal) { target in
+            TerminalView(
+                initialScript: (script: target.snippet.script, server: target.server)
+            ) {
+                try await serverViewModel.openTerminal(for: target.server)
+            }
+        }
+        .sheet(isPresented: $showingSFTPMissions) {
+            SFTPMissionsView(
+                viewModel: transferViewModel,
+                onShowInFiles: { url in
+                    showingSFTPMissions = false
+                    requestedLocalFile = url
+                    selectedTabRaw = NativeHomeTab.files.rawValue
+                }
+            )
+        }
+        .sheet(item: $sftpUploadTarget) { target in
+            SFTPView(
+                listDirectory: { path in
+                    try await serverViewModel.listDirectory(for: target.server, path: path)
+                },
+                readFile: { path in
+                    try await serverViewModel.readFile(for: target.server, path: path)
+                },
+                applyMutation: { mutation in
+                    try await serverViewModel.applySFTPMutation(mutation, on: target.server)
+                },
+                initialPath: {
+                    let fallback = target.server.username == "root"
+                        ? "/root"
+                        : "/home/\(target.server.username)"
+                    return try await serverViewModel.homeDirectory(for: target.server, fallback: fallback)
+                },
+                transferViewModel: transferViewModel,
+                onDownload: { file in
+                    transferViewModel.startDownload(server: target.server, remoteFile: file)
+                },
+                onUpload: { url, path in
+                    transferViewModel.startUpload(
+                        server: target.server,
+                        localURL: url,
+                        remoteDirectory: path
+                    )
+                },
+                onShowLocalFile: { url in
+                    sftpUploadTarget = nil
+                    requestedLocalFile = url
+                    selectedTabRaw = NativeHomeTab.files.rawValue
+                },
+                pendingUploadURL: target.localURL
+            )
+        }
         .preferredColorScheme(
             appearance == "dark" ? .dark : appearance == "light" ? .light : nil
         )
@@ -112,17 +168,31 @@ struct AppShellView: View {
             LocalFilesView(
                 onSettings: { showingSettings = true },
                 requestedFileURL: requestedLocalFile,
-                onConsumeRequestedFile: { requestedLocalFile = nil }
+                onConsumeRequestedFile: { requestedLocalFile = nil },
+                onOpenSFTPMissions: { showingSFTPMissions = true },
+                sftpServerOptions: { serverViewModel.servers },
+                onUploadToSFTP: { url, server in
+                    sftpUploadTarget = PendingSFTPUpload(server: server, localURL: url)
+                }
             )
         case .snippets:
             SnippetsView(
                 serverViewModel: serverViewModel,
-                onSettings: { showingSettings = true }
+                onSettings: { showingSettings = true },
+                onOpenTerminal: { snippet, server in
+                    snippetTerminal = SnippetTerminalTarget(snippet: snippet, server: server)
+                }
             )
         case .agent:
             AgentView(onSettings: { showingSettings = true })
         }
     }
+}
+
+private struct SnippetTerminalTarget: Identifiable {
+    let snippet: NativeSnippet
+    let server: ServerConfiguration
+    var id: UUID { server.id }
 }
 
 struct SSHTabView: View {
@@ -271,4 +341,10 @@ private struct SSHServerRow: View {
         case .failed: .red
         }
     }
+}
+
+private struct PendingSFTPUpload: Identifiable {
+    let id = UUID()
+    let server: ServerConfiguration
+    let localURL: URL
 }

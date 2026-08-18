@@ -12,6 +12,22 @@ struct LocalFileEntry: Identifiable, Hashable, Sendable {
     var name: String { url.lastPathComponent }
 }
 
+private enum LocalFileSortOrder: String, CaseIterable, Identifiable {
+    case name
+    case size
+    case modified
+
+    var id: String { rawValue }
+
+    var title: LocalizedStringKey {
+        switch self {
+        case .name: "名称"
+        case .size: "大小"
+        case .modified: "修改时间"
+        }
+    }
+}
+
 @MainActor
 final class LocalFilesViewModel: ObservableObject {
     @Published private(set) var directory: URL
@@ -43,7 +59,7 @@ final class LocalFilesViewModel: ObservableObject {
                     .fileSizeKey,
                     .contentModificationDateKey,
                 ],
-                options: [.skipsHiddenFiles]
+                options: []
             )
             entries = try urls.map { url in
                 let values = try url.resourceValues(forKeys: [
@@ -57,11 +73,6 @@ final class LocalFilesViewModel: ObservableObject {
                     size: Int64(values.fileSize ?? 0),
                     modifiedAt: values.contentModificationDate
                 )
-            }.sorted { lhs, rhs in
-                if lhs.isDirectory != rhs.isDirectory {
-                    return lhs.isDirectory
-                }
-                return lhs.name.localizedStandardCompare(rhs.name) == .orderedAscending
             }
             errorMessage = nil
         } catch {
@@ -194,19 +205,30 @@ struct LocalFilesView: View {
     let onSettings: () -> Void
     let requestedFileURL: URL?
     let onConsumeRequestedFile: () -> Void
+    let onOpenSFTPMissions: () -> Void
+    let sftpServerOptions: () -> [ServerConfiguration]
+    let onUploadToSFTP: ((URL, ServerConfiguration) -> Void)?
     @StateObject private var viewModel = LocalFilesViewModel()
     @State private var fileToRename: LocalFileEntry?
     @State private var createKind: LocalCreateKind?
     @State private var showingImporter = false
+    @State private var sortOrder: LocalFileSortOrder = .name
+    @State private var sortAscending = true
 
     init(
         onSettings: @escaping () -> Void,
         requestedFileURL: URL? = nil,
-        onConsumeRequestedFile: @escaping () -> Void = {}
+        onConsumeRequestedFile: @escaping () -> Void = {},
+        onOpenSFTPMissions: @escaping () -> Void = {},
+        sftpServerOptions: @escaping () -> [ServerConfiguration] = { [] },
+        onUploadToSFTP: ((URL, ServerConfiguration) -> Void)? = nil
     ) {
         self.onSettings = onSettings
         self.requestedFileURL = requestedFileURL
         self.onConsumeRequestedFile = onConsumeRequestedFile
+        self.onOpenSFTPMissions = onOpenSFTPMissions
+        self.sftpServerOptions = sftpServerOptions
+        self.onUploadToSFTP = onUploadToSFTP
     }
 
     var body: some View {
@@ -229,7 +251,7 @@ struct LocalFilesView: View {
                         description: Text("从文件标签页导入或创建文件。")
                     )
                 } else {
-                    ForEach(viewModel.entries) { entry in
+                    ForEach(sortedEntries) { entry in
                         Button { viewModel.open(entry) } label: {
                             fileRow(entry)
                         }
@@ -242,6 +264,28 @@ struct LocalFilesView: View {
                                 fileToRename = entry
                             }
                             .tint(.orange)
+                        }
+                        .contextMenu {
+                            if !entry.isDirectory {
+                                ShareLink(item: entry.url) {
+                                    Label("分享", systemImage: "square.and.arrow.up")
+                                }
+                            }
+                            if !entry.isDirectory, onUploadToSFTP != nil, !sftpServerOptions().isEmpty {
+                                Menu("上传到 SFTP", systemImage: "arrow.up.doc") {
+                                    ForEach(sftpServerOptions()) { server in
+                                        Button(server.name) {
+                                            onUploadToSFTP?(entry.url, server)
+                                        }
+                                    }
+                                }
+                            }
+                            Button("重命名", systemImage: "pencil") {
+                                fileToRename = entry
+                            }
+                            Button("删除", systemImage: "trash", role: .destructive) {
+                                viewModel.delete(entry)
+                            }
                         }
                     }
                 }
@@ -257,6 +301,39 @@ struct LocalFilesView: View {
                     .accessibilityLabel("设置")
                 }
                 ToolbarItemGroup(placement: .topBarTrailing) {
+                    Menu {
+                        ForEach(LocalFileSortOrder.allCases) { order in
+                            Button {
+                                if sortOrder == order {
+                                    sortAscending.toggle()
+                                } else {
+                                    sortOrder = order
+                                    sortAscending = true
+                                }
+                            } label: {
+                                if sortOrder == order {
+                                    Label(order.title, systemImage: "checkmark")
+                                } else {
+                                    Text(order.title)
+                                }
+                            }
+                        }
+                        Divider()
+                        Button(sortAscending ? "降序" : "升序", systemImage: sortAscending ? "arrow.down" : "arrow.up") {
+                            sortAscending.toggle()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.up.arrow.down")
+                    }
+                    .accessibilityLabel("排序")
+
+                    Button {
+                        onOpenSFTPMissions()
+                    } label: {
+                        Image(systemName: "arrow.down.circle")
+                    }
+                    .accessibilityLabel("SFTP 任务")
+
                     Menu {
                         Button("新建文件夹", systemImage: "folder.badge.plus") {
                             createKind = .folder
@@ -342,11 +419,16 @@ struct LocalFilesView: View {
             VStack(alignment: .leading, spacing: 3) {
                 Text(entry.name)
                     .lineLimit(1)
-                if !entry.isDirectory {
-                    Text(ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
+                HStack(spacing: DesignTokens.spaceS) {
+                    if !entry.isDirectory {
+                        Text(ByteCountFormatter.string(fromByteCount: entry.size, countStyle: .file))
+                    }
+                    if let modifiedAt = entry.modifiedAt {
+                        Text(Self.absoluteDateFormatter.string(from: modifiedAt))
+                    }
                 }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Spacer()
             if entry.isDirectory {
@@ -357,6 +439,38 @@ struct LocalFilesView: View {
         }
         .contentShape(Rectangle())
     }
+
+    private var sortedEntries: [LocalFileEntry] {
+        let sorted = viewModel.entries.sorted { lhs, rhs in
+            if lhs.isDirectory != rhs.isDirectory {
+                return lhs.isDirectory
+            }
+            let result: ComparisonResult
+            switch sortOrder {
+            case .name:
+                result = lhs.name.localizedStandardCompare(rhs.name)
+            case .size:
+                result = compare(lhs.size, rhs.size)
+            case .modified:
+                result = compare(lhs.modifiedAt ?? .distantPast, rhs.modifiedAt ?? .distantPast)
+            }
+            return sortAscending
+                ? result == .orderedAscending
+                : result == .orderedDescending
+        }
+        return sorted
+    }
+
+    private func compare<T: Comparable>(_ lhs: T, _ rhs: T) -> ComparisonResult {
+        if lhs == rhs { return .orderedSame }
+        return lhs < rhs ? .orderedAscending : .orderedDescending
+    }
+
+    private static let absoluteDateFormatter: DateFormatter = {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss"
+        return formatter
+    }()
 }
 
 private struct RenameLocalFileView: View {

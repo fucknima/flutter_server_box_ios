@@ -116,7 +116,9 @@ struct PVEView: View {
                     .accessibilityLabel("刷新 PVE 资源")
                 }
             }
-            .task { await viewModel.load() }
+            .task {
+                await autoRefresh()
+            }
             .confirmationDialog(
                 "控制 PVE 资源？",
                 isPresented: Binding(
@@ -175,10 +177,159 @@ struct PVEView: View {
     }
 
     private func resourceRow(_ resource: PVEResource) -> some View {
-        VStack(alignment: .leading, spacing: 5) {
+        switch resource.type {
+        case "node":
+            return AnyView(nodeRow(resource))
+        case "qemu", "lxc":
+            return AnyView(vmRow(resource))
+        case "storage":
+            return AnyView(storageRow(resource))
+        default:
+            return AnyView(genericRow(resource))
+        }
+    }
+
+    private func nodeRow(_ resource: PVEResource) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "server.rack")
+                    .foregroundStyle(resource.isOnline ? .green : .secondary)
+                Text(resource.displayName)
+                    .font(.headline)
+                Spacer()
+                Text(resource.status ?? "unknown")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let uptime = resource.uptime {
+                Text("运行 \(uptimeText(uptime))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let cpu = resource.cpu {
+                usageBar(
+                    label: "CPU",
+                    percentText: percentText(cpu, max: resource.maxCPU),
+                    fraction: resource.maxCPU.map { $0 > 0 ? min(1, cpu / $0) : 0 }
+                )
+            }
+            if let memory = resource.memoryBytes {
+                usageBar(
+                    label: "内存",
+                    percentText: "\(byteString(memory)) / \(byteString(resource.maxMemoryBytes ?? 0))",
+                    fraction: resource.memoryFraction
+                )
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func vmRow(_ resource: PVEResource) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
             HStack {
                 Image(systemName: resource.isRunning ? "play.circle.fill" : "stop.circle")
                     .foregroundStyle(resource.isRunning ? .green : .secondary)
+                Text(resource.displayName)
+                    .font(.headline)
+                Spacer()
+                if let uptime = resource.uptime {
+                    Text("运行 \(uptimeText(uptime))")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } else {
+                    Text(resource.status ?? "unknown")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            }
+            Text("\(resource.node)\(resource.vmid.map { " · \($0)" } ?? "")")
+                .font(.caption.monospaced())
+                .foregroundStyle(.secondary)
+            if resource.isRunning {
+                HStack(alignment: .top, spacing: DesignTokens.spaceL) {
+                    percentCircle(
+                        title: "CPU",
+                        fraction: cpuFraction(of: resource)
+                    )
+                    percentCircle(
+                        title: "内存",
+                        fraction: resource.memoryFraction ?? 0
+                    )
+                    if resource.diskReadBytes != nil || resource.diskWriteBytes != nil {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let read = resource.diskReadBytes {
+                                Label("读 \(byteString(read))", systemImage: "arrow.down.circle")
+                            }
+                            if let write = resource.diskWriteBytes {
+                                Label("写 \(byteString(write))", systemImage: "arrow.up.circle")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                    if resource.networkInBytes != nil || resource.networkOutBytes != nil {
+                        VStack(alignment: .leading, spacing: 4) {
+                            if let netIn = resource.networkInBytes {
+                                Label("↓ \(byteString(netIn))", systemImage: "arrow.down.to.line")
+                            }
+                            if let netOut = resource.networkOutBytes {
+                                Label("↑ \(byteString(netOut))", systemImage: "arrow.up.to.line")
+                            }
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                    }
+                }
+            } else {
+                HStack(spacing: DesignTokens.spaceM) {
+                    if let memory = resource.memoryBytes {
+                        Label(byteString(memory), systemImage: "memorychip")
+                    }
+                    if let disk = resource.diskBytes {
+                        Label(byteString(disk), systemImage: "internaldrive")
+                    }
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func storageRow(_ resource: PVEResource) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            HStack {
+                Image(systemName: "externaldrive")
+                    .foregroundStyle(resource.isOnline ? .green : .secondary)
+                Text(resource.displayName)
+                    .font(.headline)
+                Spacer()
+                Text(resource.status ?? "unknown")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let disk = resource.diskBytes {
+                Text("已用 \(byteString(disk)) / 总计 \(byteString(resource.maxDiskBytes ?? 0))")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
+            if let content = resource.content {
+                LabeledContent("内容", value: content)
+                    .font(.caption)
+            }
+            if let pluginType = resource.pluginType {
+                LabeledContent("插件类型", value: pluginType)
+                    .font(.caption)
+            }
+        }
+        .padding(.vertical, 3)
+    }
+
+    private func genericRow(_ resource: PVEResource) -> some View {
+        VStack(alignment: .leading, spacing: 5) {
+            HStack {
+                Image(systemName: resource.isRunning ? "play.circle.fill" : "stop.circle")
+                    .foregroundStyle(resource.isOnline ? .green : .secondary)
                 Text(resource.displayName)
                     .font(.headline)
                 Spacer()
@@ -189,22 +340,59 @@ struct PVEView: View {
             Text("\(resource.node)\(resource.vmid.map { " · \($0)" } ?? "")")
                 .font(.caption.monospaced())
                 .foregroundStyle(.secondary)
-            if let cpu = resource.cpu {
-                ProgressView(value: resource.maxCPU.map { $0 > 0 ? min(1, cpu / $0) : 0 } ?? 0)
-                    .tint(DesignTokens.accent)
-            }
-            HStack(spacing: DesignTokens.spaceM) {
-                if let memory = resource.memoryBytes {
-                    Label(byteString(memory), systemImage: "memorychip")
-                }
-                if let disk = resource.diskBytes {
-                    Label(byteString(disk), systemImage: "internaldrive")
-                }
-            }
-            .font(.caption)
-            .foregroundStyle(.secondary)
         }
         .padding(.vertical, 3)
+    }
+
+    private func usageBar(label: String, percentText: String, fraction: Double?) -> some View {
+        VStack(alignment: .leading, spacing: 3) {
+            HStack {
+                Text(label)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Spacer()
+                Text(percentText)
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
+            ProgressView(value: fraction ?? 0)
+                .tint(DesignTokens.accent)
+        }
+    }
+
+    private func percentCircle(title: String, fraction: Double) -> some View {
+        VStack(spacing: 4) {
+            ProgressView(value: fraction)
+                .progressViewStyle(.circular)
+                .tint(DesignTokens.accent)
+                .frame(width: 40, height: 40)
+                .overlay {
+                    Text("\(Int((fraction * 100).rounded()))%")
+                        .font(.caption2.monospacedDigit())
+                }
+            Text(title)
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+        }
+    }
+
+    private func cpuFraction(of resource: PVEResource) -> Double {
+        guard let cpu = resource.cpu, let maxCPU = resource.maxCPU, maxCPU > 0 else { return 0 }
+        return min(1, cpu / maxCPU)
+    }
+
+    private func uptimeText(_ seconds: Int) -> String {
+        let days = seconds / 86_400
+        let hours = (seconds % 86_400) / 3_600
+        let minutes = (seconds % 3_600) / 60
+        if days > 0 { return "\(days)天\(hours)小时" }
+        if hours > 0 { return "\(hours)小时\(minutes)分" }
+        return "\(max(minutes, 1))分"
+    }
+
+    private func percentText(_ cpu: Double, max maxCPU: Double?) -> String {
+        guard let maxCPU, maxCPU > 0 else { return "—" }
+        return "\(Int(((cpu / maxCPU) * 100).rounded()))%"
     }
 
     private func byteString(_ value: UInt64) -> String {
@@ -212,5 +400,16 @@ struct PVEView: View {
             fromByteCount: Int64(min(value, UInt64(Int64.max))),
             countStyle: .file
         )
+    }
+
+    private func autoRefresh() async {
+        while !Task.isCancelled {
+            await viewModel.load()
+            do {
+                try await Task.sleep(nanoseconds: 30_000_000_000)
+            } catch {
+                return
+            }
+        }
     }
 }

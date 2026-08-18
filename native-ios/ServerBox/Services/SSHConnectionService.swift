@@ -107,6 +107,7 @@ actor SSHConnectionService {
     private var terminalSessions: [UUID: SSHTerminalSession] = [:]
     private var processSamples: [UUID: [Int: (readBytes: Int, writeBytes: Int)]] = [:]
     private var processSampleTimes: [UUID: TimeInterval] = [:]
+    private var fileEncodings: [UUID: [String: String.Encoding]] = [:]
     private let disconnectStream: AsyncStream<SSHDisconnectEvent>
     private let disconnectContinuation: AsyncStream<SSHDisconnectEvent>.Continuation
 
@@ -720,7 +721,14 @@ actor SSHConnectionService {
                 attributes.permissions = permissions
                 try await sftp.setAttributes(at: path, to: attributes)
             case .writeFile(let path, let content):
-                let data = Data(content.utf8)
+                let data: Data
+                let sourceEncoding = self.fileEncodings[serverID]?[path] ?? .utf8
+                if sourceEncoding == SSHConnectionService.gbkEncoding,
+                   let gbkData = content.data(using: SSHConnectionService.gbkEncoding) {
+                    data = gbkData
+                } else {
+                    data = Data(content.utf8)
+                }
                 guard data.count <= 1_048_576 else {
                     throw SFTPTransportError.fileTooLarge
                 }
@@ -827,33 +835,48 @@ actor SSHConnectionService {
     }
 
     func openTerminal(
-        serverID: UUID,
+        server: ServerConfiguration,
         columns: Int = 100,
         rows: Int = 30
     ) async throws -> SSHTerminalSession {
-        guard let client = clients[serverID], client.isConnected else {
+        guard let client = clients[server.id], client.isConnected else {
             throw SSHTransportError.notConnected
         }
 
-        if let oldTerminal = terminalSessions.removeValue(forKey: serverID) {
+        if let oldTerminal = terminalSessions.removeValue(forKey: server.id) {
             await oldTerminal.close()
         }
 
         let terminal = SSHTerminalSession()
-        terminalSessions[serverID] = terminal
+        terminalSessions[server.id] = terminal
         do {
             try await terminal.start(client: client, columns: columns, rows: rows)
             let snippets = (try? await SnippetStore.live.load()) ?? []
-            for snippet in snippets where snippet.autoRunOn.contains(serverID) {
-                let command = snippet.script.hasSuffix("\n")
-                    ? snippet.script
-                    : snippet.script + "\n"
-                try? await terminal.send(command)
+            for snippet in snippets where snippet.autoRunOn.contains(server.id) {
+                let storedPassword = try? SSHCredentialStore().load(for: server.id)
+                let password: String
+                if case .password(let value) = storedPassword {
+                    password = value
+                } else {
+                    password = ""
+                }
+                try? await SnippetFormat.execute(
+                    snippet.script,
+                    server: server,
+                    password: password,
+                    send: { value in
+                        try await terminal.send(value)
+                    },
+                    sleep: { duration in
+                        try await Task.sleep(nanoseconds: UInt64(duration * 1_000_000_000))
+                    }
+                )
+                try? await terminal.send("\n")
             }
             return terminal
         } catch {
-            if let currentTerminal = terminalSessions[serverID], currentTerminal === terminal {
-                terminalSessions.removeValue(forKey: serverID)
+            if let currentTerminal = terminalSessions[server.id], currentTerminal === terminal {
+                terminalSessions.removeValue(forKey: server.id)
             }
             throw error
         }
@@ -933,10 +956,12 @@ actor SSHConnectionService {
                 }
                 guard let content = String(data: data, encoding: .utf8) else {
                     if let gbkContent = String(data: data, encoding: SSHConnectionService.gbkEncoding) {
+                        self.fileEncodings[serverID, default: [:]][path] = SSHConnectionService.gbkEncoding
                         return gbkContent
                     }
                     throw SFTPTransportError.notUTF8File
                 }
+                self.fileEncodings[serverID, default: [:]][path] = .utf8
                 return content
             }
         }

@@ -755,7 +755,7 @@ final class ServerListViewModel: ObservableObject {
     }
 
     func openTerminal(for server: ServerConfiguration) async throws -> SSHTerminalSession {
-        try await SSHConnectionService.live.openTerminal(serverID: server.id)
+        try await SSHConnectionService.live.openTerminal(server: server)
     }
 
     func listDirectory(
