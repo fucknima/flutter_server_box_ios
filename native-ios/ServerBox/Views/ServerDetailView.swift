@@ -349,7 +349,6 @@ struct ServerDetailView: View {
             }
         }
     }
-    }
 
     private var authenticationTitle: LocalizedStringKey {
         switch server.authentication {
