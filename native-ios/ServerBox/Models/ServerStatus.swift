@@ -2,10 +2,10 @@ import Foundation
 
 struct ServerStatus: Codable, Equatable, Sendable {
     let name: String
-    let cpu: String
-    let memory: String
-    let disk: String
-    let network: String
+    var cpu: String
+    var memory: String
+    var disk: String
+    var network: String
     var dist: String
     var customCmds: [String: String]
 
