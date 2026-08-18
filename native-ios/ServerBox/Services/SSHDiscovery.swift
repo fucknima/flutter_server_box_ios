@@ -306,17 +306,12 @@ enum SSHDiscoveryService {
 
     private static func endpointHost(endpoint: NWEndpoint?, fallback: String) -> String {
         guard case let .hostPort(host, _)? = endpoint else { return fallback }
-        switch host {
-        case let .ipv4(address):
-            return address.debugDescription
-        case let .ipv6(address):
-            let text = address.debugDescription.lowercased()
-            return text.hasPrefix("fe80") ? fallback : text
-        case let .hostname(name):
-            return name.isEmpty ? fallback : name
-        @unknown default:
+        let text = "\(host)"
+        let lower = text.lowercased()
+        if lower.hasPrefix("fe80") {
             return fallback
         }
+        return text
     }
 
     private static func endpointPort(_ endpoint: NWEndpoint?) -> Int {

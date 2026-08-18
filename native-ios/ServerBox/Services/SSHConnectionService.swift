@@ -692,6 +692,8 @@ actor SSHConnectionService {
             throw SSHTransportError.notConnected
         }
 
+        let sourceEncodings: [String: String.Encoding] = fileEncodings[serverID] ?? [:]
+
         try await client.withSFTP { sftp in
             switch mutation {
             case .createDirectory(let path):
@@ -721,7 +723,7 @@ actor SSHConnectionService {
                 attributes.permissions = permissions
                 try await sftp.setAttributes(at: path, to: attributes)
             case .writeFile(let path, let content):
-                let sourceEncoding = self.fileEncodings[serverID]?[path] ?? .utf8
+                let sourceEncoding = sourceEncodings[path] ?? .utf8
                 let data: Data
                 if sourceEncoding == SSHConnectionService.gbkEncoding,
                    let gbkData = content.data(using: SSHConnectionService.gbkEncoding) {

@@ -375,12 +375,14 @@ struct ServerDiscoveryView: View {
     private var settingsSheet: some View {
         NavigationStack {
             Form {
-                Section("扫描设置") {
+                Section {
                     TextField("超时（毫秒）", text: $timeoutMsText)
                         .keyboardType(.numberPad)
                     TextField("并发数", text: $maxConcurrencyText)
                         .keyboardType(.numberPad)
                     Toggle("启用 mDNS 发现", isOn: $enableMdns)
+                } header: {
+                    Text("扫描设置")
                 } footer: {
                     Text("mDNS 用于发现局域网中通过 Bonjour 广播的 SSH 服务（_ssh._tcp）。")
                 }

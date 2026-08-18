@@ -388,7 +388,7 @@ struct ServerDetailView: View {
 }
 
 private struct DetailMetricRow: View {
-    let title: LocalizedStringKey
+    let title: String
     let value: String
     let fraction: Double?
     let image: String
