@@ -1,7 +1,7 @@
 import Foundation
 
 struct ServerStatus: Codable, Equatable, Sendable {
-    let name: String
+    var name: String
     var cpu: String
     var memory: String
     var disk: String
