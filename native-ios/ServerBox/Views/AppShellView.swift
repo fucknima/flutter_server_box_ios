@@ -184,7 +184,31 @@ struct AppShellView: View {
                 }
             )
         case .agent:
-            AgentView(onSettings: { showingSettings = true })
+            AgentView(
+                onSettings: { showingSettings = true },
+                servers: serverViewModel.servers,
+                runShellCommand: { serverID, command in
+                    guard let server = serverViewModel.servers.first(where: { $0.id == serverID }) else {
+                        throw AgentToolError.serverUnavailable
+                    }
+                    return try await serverViewModel.execute(command, on: server)
+                },
+                readRemoteFile: { serverID, path in
+                    guard let server = serverViewModel.servers.first(where: { $0.id == serverID }) else {
+                        throw AgentToolError.serverUnavailable
+                    }
+                    return try await serverViewModel.readFile(for: server, path: path)
+                },
+                writeRemoteFile: { serverID, path, content in
+                    guard let server = serverViewModel.servers.first(where: { $0.id == serverID }) else {
+                        throw AgentToolError.serverUnavailable
+                    }
+                    try await serverViewModel.applySFTPMutation(
+                        .writeFile(path: path, content: content),
+                        on: server
+                    )
+                }
+            )
         }
     }
 }
